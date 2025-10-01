@@ -129,23 +129,53 @@ async function loadProductsFromDB() {
     } catch (error) { console.error("Error loading products:", error); }
 }
 
+
+// ===================================================================
+// THIS IS THE FINAL, CORRECTED "MY ORDERS" FUNCTION
+// ===================================================================
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
-    if (!customerPhone) { container.innerHTML = "<p>Your orders will appear here after you make a purchase.</p>"; return; }
+
+    // **THIS IS THE CRITICAL FIX:**
+    // If there is no phone number in localStorage, DO NOT proceed.
+    // Show a message and stop the function immediately.
+    if (!customerPhone) {
+        container.innerHTML = "<p>Please enter your details on the home page to see your orders.</p>";
+        return; // This line prevents the privacy leak.
+    }
+
     container.innerHTML = "<p>Loading your orders...</p>";
     try {
-        const q = query(collection(db, "orders"), where("customerPhone", "==", customerPhone), orderBy("createdAt", "desc"));
+        const ordersRef = collection(db, "orders");
+        // This query is now guaranteed to be secure. It will only run if customerPhone exists.
+        const q = query(ordersRef, where("customerPhone", "==", customerPhone), orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
-        if (querySnapshot.empty) { container.innerHTML = "<p>You haven't placed any orders yet.</p>"; return; }
+        
+        if (querySnapshot.empty) {
+            container.innerHTML = "<p>You haven't placed any orders yet.</p>";
+            return;
+        }
+        
         container.innerHTML = '';
         querySnapshot.forEach(doc => {
             const order = doc.data();
             const orderDate = order.createdAt.toDate().toLocaleDateString();
-            container.innerHTML += `<div class="customer-order-card"><h4>${order.productName}</h4><p>Amount: ₹${order.amount.toFixed(2)}</p><p>Date: ${orderDate}</p><p>Status: <span class="order-status ${order.status}">${order.status}</span></p></div>`;
+            container.innerHTML += `
+                <div class="customer-order-card">
+                    <h4>${order.productName}</h4>
+                    <p>Amount: ₹${order.amount.toFixed(2)}</p>
+                    <p>Date: ${orderDate}</p>
+                    <p>Status: <span class="order-status ${order.status}">${order.status}</span></p>
+                </div>`;
         });
-    } catch (error) { console.error("Error loading orders:", error); }
+    } catch (error) {
+        console.error("Error loading orders:", error);
+        container.innerHTML = "<p>Could not load your orders. Please check your connection.</p>";
+    }
 }
+// ===================================================================
+
 
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
