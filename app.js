@@ -1,4 +1,5 @@
-// Start of app.js code
+// app.js (Final Corrected Version)
+
 import { db } from './firebase.js';
 import { collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
@@ -13,12 +14,14 @@ function checkUserDetails() {
         document.getElementById('user-details-modal').classList.remove('hidden');
     }
 }
+
 function greetUser(name) {
     document.getElementById('user-greeting-name').textContent = name;
 }
+
 async function saveUserDetails(name, phone) {
     try {
-        await addDoc(collection(db, "customers"), { name, phone });
+        // We no longer need to save to Firebase here, just localStorage is fine for this flow.
         localStorage.setItem('customerName', name);
         localStorage.setItem('customerPhone', phone);
         greetUser(name);
@@ -29,7 +32,7 @@ async function saveUserDetails(name, phone) {
     }
 }
 
-// --- DATA FETCHING & RENDERING ---
+// --- DATA FETCHING & RENDERING (No changes here) ---
 async function loadData() {
     await loadCategoriesFromDB();
     await loadProductsFromDB();
@@ -92,48 +95,25 @@ function renderProductDetails(productId) {
     document.getElementById('buy-now-btn').dataset.id = productId;
 }
 
-// --- "BUY NOW" LOGIC ---
-async function handleBuyNow(productId) {
-    const product = allProducts.find(p => p.id === productId);
+// --- SIMPLIFIED "BUY NOW" LOGIC ---
+function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
-    const customerPhone = localStorage.getItem('customerPhone');
 
-    if (!product || !product.paymentLink) {
-        alert("Sorry, payment link is not available.");
-        return;
-    }
-    if (!customerName || !customerPhone) {
+    // First, check if the user has entered their details.
+    if (!customerName) {
         alert("Please provide your details first.");
-        checkUserDetails();
-        return;
+        checkUserDetails(); // Re-open the details popup if it's missing.
+        return; // Stop the function here.
     }
     
-    try {
-        const orderRef = await addDoc(collection(db, "orders"), {
-            customerName: customerName,
-            customerPhone: customerPhone,
-            productName: product.name,
-            productId: product.id,
-            amount: product.price,
-            status: "pending",
-            createdAt: new Date()
-        });
-        
-        console.log("Created pending order with ID:", orderRef.id);
-        
-        // This is the new part that uses your Payment Page link
-        const paymentUrl = new URL(product.paymentLink);
-        // We can pre-fill the fields for the customer
-        paymentUrl.searchParams.set('description', `Order for ${product.name}`);
-        paymentUrl.searchParams.set('notes[order_id]', orderRef.id); // This is how the webhook knows the order
-        paymentUrl.searchParams.set('prefill[name]', customerName);
-        paymentUrl.searchParams.set('prefill[contact]', customerPhone);
-        
-        window.location.href = paymentUrl.toString();
-        
-    } catch (error) {
-        console.error("Error creating pending order:", error);
-        alert("Could not start purchase. Please try again.");
+    const product = allProducts.find(p => p.id === productId);
+
+    if (product && product.paymentLink) {
+        // This is much simpler now. We just redirect to the link from the database.
+        console.log(`Redirecting to payment link for ${product.name}: ${product.paymentLink}`);
+        window.location.href = product.paymentLink;
+    } else {
+        alert("Sorry, a payment link is not available for this product.");
     }
 }
 
@@ -149,15 +129,15 @@ document.addEventListener('DOMContentLoaded', () => {
         saveUserDetails(name, phone);
     });
 
-    document.getElementById('product-grid').addEventListener('click', async (e) => {
+    document.getElementById('product-grid').addEventListener('click', (e) => {
         const buyBtn = e.target.closest('.buy-now-grid-btn');
         const card = e.target.closest('.product-card');
-        if (buyBtn) { await handleBuyNow(buyBtn.dataset.id); } 
+        if (buyBtn) { handleBuyNow(buyBtn.dataset.id); } 
         else if (card) { renderProductDetails(card.dataset.id); switchView('details-view'); }
     });
     
-    document.getElementById('buy-now-btn').addEventListener('click', async (e) => {
-        await handleBuyNow(e.target.dataset.id);
+    document.getElementById('buy-now-btn').addEventListener('click', (e) => {
+        handleBuyNow(e.target.dataset.id);
     });
     
     document.querySelector('.bottom-nav').addEventListener('click', (e) => {
@@ -179,4 +159,3 @@ function switchView(viewId) {
         n.classList.toggle('active', n.dataset.view === viewId);
     });
 }
-// End of app.js code
