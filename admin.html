@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel</title>
     <link rel="stylesheet" href="style.css">
-    <!-- FIX: Added favicon link to prevent 404 error -->
     <link rel="icon" href="/images/icons/icon-192x192.png">
 </head>
 <body>
@@ -16,7 +15,6 @@
                 <h2>Admin Login</h2>
                 <input type="email" id="admin-email" placeholder="Email" required>
                 <input type="password" id="admin-password" placeholder="Password" required>
-                <!-- IMPORTANT: The JS needs this button with id="admin-login-btn" -->
                 <button id="admin-login-btn">Login</button>
                 <p id="login-error" class="error-message"></p>
             </div>
@@ -31,6 +29,7 @@
             <nav id="admin-nav">
                 <button data-view="categories-view">Manage Categories</button>
                 <button data-view="products-view">Manage Products</button>
+                <button data-view="banners-view">Manage Banners</button>
                 <button data-view="customers-view">View Customers</button>
                 <button data-view="orders-view">Manage Orders</button>
             </nav>
@@ -39,7 +38,6 @@
                 <!-- Category Management -->
                 <div id="categories-view" class="content-view">
                     <h3>Categories</h3>
-                    <!-- IMPORTANT: The JS needs this form with id="category-form" -->
                     <form id="category-form" class="admin-form">
                         <input type="hidden" id="category-id">
                         <input type="text" id="category-name" placeholder="Category Name" required>
@@ -51,7 +49,6 @@
                 <!-- Product Management -->
                 <div id="products-view" class="content-view" style="display: none;">
                     <h3>Products</h3>
-                    <!-- IMPORTANT: The JS needs this form with id="product-form" -->
                     <form id="product-form" class="admin-form">
                         <input type="hidden" id="product-id">
                         <input type="text" id="product-name" placeholder="Product Name" required>
@@ -60,13 +57,24 @@
                         <input type="number" id="product-original-price" placeholder="Original Price (MRP, e.g., 1200)" step="0.01">
                         <input type="number" id="product-price" placeholder="Selling Price (e.g., 999)" step="0.01" required>
                         
-                        <input type="text" id="product-image-url" placeholder="Image URL" required>
+                        <!-- Changed to textarea for multiple images -->
+                        <textarea id="product-image-url" placeholder="Image URLs (one URL per line)" required rows="4"></textarea>
                         <input type="text" id="product-payment-link" placeholder="Razorpay Payment Link" required>
                         
                         <select id="product-category" required></select>
                         <button type="submit">Save Product</button>
                     </form>
                     <div id="product-list-container"></div>
+                </div>
+
+                <!-- Banner Management View -->
+                <div id="banners-view" class="content-view" style="display: none;">
+                    <h3>Manage Banners</h3>
+                    <form id="banner-form" class="admin-form">
+                        <input type="text" id="banner-image-url" placeholder="Banner Image URL" required>
+                        <button type="submit">Save Banner</button>
+                    </form>
+                    <div id="banner-list-container"></div>
                 </div>
 
                 <!-- Customer Management View -->
@@ -84,7 +92,6 @@
         </section>
     </div>
 
-    <!-- The script tag MUST have type="module" -->
     <script type="module" src="admin.js"></script>
 </body>
 </html>
