@@ -12,11 +12,15 @@
 </head>
 <body>
 
-    <!-- User Details Modal -->
+    <!-- User Details Modal with Avatar Selection -->
     <div id="user-details-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3>Welcome!</h3>
-            <p>Please enter your details to continue.</p>
+            <p>Please choose an avatar and enter your details.</p>
+            <div class="avatar-chooser">
+                <img src="https://i.ibb.co/68vjVbB/male-avatar.png" alt="Male Avatar" class="avatar-option selected" data-avatar="male">
+                <img src="https://i.ibb.co/VMyP10f/female-avatar.png" alt="Female Avatar" class="avatar-option" data-avatar="female">
+            </div>
             <form id="user-details-form">
                 <input type="text" id="user-name-input" placeholder="Enter your name" required>
                 <input type="tel" id="user-phone-input" placeholder="Enter your phone number" required>
@@ -40,6 +44,7 @@
                     <h3 id="user-greeting-name">Guest</h3>
                 </div>
                 <div class="header-actions">
+                    <img id="header-avatar" class="header-avatar" src="https://i.ibb.co/68vjVbB/male-avatar.png" alt="Avatar">
                     <button id="search-icon-btn" class="icon-btn"><i class="fas fa-search"></i></button>
                 </div>
             </header>
@@ -53,9 +58,7 @@
                     <div class="section-header">
                         <h4>Categories</h4>
                     </div>
-                    <div id="category-list-short" class="horizontal-scroll">
-                        <!-- Categories loaded by JS -->
-                    </div>
+                    <div id="category-list-short" class="horizontal-scroll"></div>
                 </section>
 
                 <section class="new-arrivals-section">
@@ -102,9 +105,16 @@
                 <div style="width: 40px;"></div>
             </header>
              <main class="app-main profile-main">
+                <img id="profile-photo" src="https://i.ibb.co/68vjVbB/male-avatar.png" alt="Profile Photo" class="profile-photo">
                 <div class="profile-details">
-                    <p><strong>Name:</strong> <span id="profile-name"></span></p>
-                    <p><strong>Phone:</strong> <span id="profile-phone"></span></p>
+                    <div class="profile-details-row">
+                        <strong>Name:</strong>
+                        <span id="profile-name"></span>
+                    </div>
+                    <div class="profile-details-row">
+                        <strong>Phone:</strong>
+                        <span id="profile-phone"></span>
+                    </div>
                 </div>
                 <button id="logout-btn" class="btn-secondary">Logout</button>
              </main>
