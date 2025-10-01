@@ -24,6 +24,12 @@
             </form>
         </div>
     </div>
+    
+    <!-- Search Bar (hidden by default) -->
+    <div id="search-bar">
+        <input type="text" id="search-input" placeholder="Search for products...">
+        <button id="close-search-btn" class="icon-btn"><i class="fas fa-times"></i></button>
+    </div>
 
     <div id="app-container">
         <!-- Home View -->
@@ -34,7 +40,7 @@
                     <h3 id="user-greeting-name">Guest</h3>
                 </div>
                 <div class="header-actions">
-                    <button class="icon-btn"><i class="fas fa-search"></i></button>
+                    <button id="search-icon-btn" class="icon-btn"><i class="fas fa-search"></i></button>
                 </div>
             </header>
             <main class="app-main">
@@ -43,11 +49,9 @@
                     <div id="carousel-dots" class="carousel-dots"></div>
                 </section>
                 
-                <!-- RESTORED Categories Section -->
                 <section class="categories-section">
                     <div class="section-header">
                         <h4>Categories</h4>
-                        <a href="#">See all</a>
                     </div>
                     <div id="category-list-short" class="horizontal-scroll">
                         <!-- Categories loaded by JS -->
@@ -57,9 +61,11 @@
                 <section class="new-arrivals-section">
                     <div class="section-header">
                         <h4>New arrivals</h4>
-                        <a href="#">See all</a>
                     </div>
                     <div id="product-grid" class="product-grid"></div>
+                    <div id="no-products-message" class="hidden">
+                        <p>No products found matching your criteria.</p>
+                    </div>
                 </section>
             </main>
         </div>
@@ -85,23 +91,24 @@
                 <h4>My Orders</h4>
                 <div style="width: 40px;"></div>
             </header>
-            <main class="app-main" id="customer-orders-list">
-                <!-- Orders loaded by JS -->
-            </main>
+            <main class="app-main" id="customer-orders-list"></main>
         </div>
 
-        <!-- Placeholder Profile View -->
+        <!-- Profile View -->
         <div id="profile-view" class="view">
              <header class="app-header-condensed">
                 <button class="icon-btn back-to-home"><i class="fas fa-arrow-left"></i></button>
-                <h4>Profile</h4>
+                <h4>My Profile</h4>
                 <div style="width: 40px;"></div>
             </header>
-             <main class="app-main">
-                <p>Profile page coming soon!</p>
-            </main>
+             <main class="app-main profile-main">
+                <div class="profile-details">
+                    <p><strong>Name:</strong> <span id="profile-name"></span></p>
+                    <p><strong>Phone:</strong> <span id="profile-phone"></span></p>
+                </div>
+                <button id="logout-btn" class="btn-secondary">Logout</button>
+             </main>
         </div>
-
     </div>
 
     <!-- Bottom Navigation Bar -->
