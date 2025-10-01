@@ -1,33 +1,47 @@
 import { db } from './firebase.js';
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, getDocs, doc, getDoc, addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 let allProducts = [];
 let cart = JSON.parse(localStorage.getItem('cart')) || [];
 
-// --- ডেটাবেস থেকে ডেটা লোড করার ফাংশন ---
+// --- DATABASE FETCHING FUNCTIONS ---
 async function loadCategoriesFromDB() {
     const container = document.getElementById('category-list');
-    const querySnapshot = await getDocs(collection(db, "categories"));
-    container.innerHTML = '';
-    querySnapshot.forEach(doc => {
-        const category = doc.data();
-        container.innerHTML += `<div class="category-chip">${category.name}</div>`;
-    });
+    try {
+        const querySnapshot = await getDocs(collection(db, "categories"));
+        container.innerHTML = '';
+        querySnapshot.forEach(doc => {
+            const category = doc.data();
+            container.innerHTML += `<div class="category-chip">${category.name}</div>`;
+        });
+    } catch (error) {
+        console.error("Error loading categories:", error);
+        container.innerHTML = "<p>Could not load categories.</p>";
+    }
 }
 
 async function loadProductsFromDB() {
     const grid = document.getElementById('product-grid');
-    const querySnapshot = await getDocs(collection(db, "products"));
-    allProducts = [];
-    querySnapshot.forEach(doc => {
-        allProducts.push({ id: doc.id, ...doc.data() });
-    });
-    renderProducts(allProducts);
+    try {
+        const querySnapshot = await getDocs(collection(db, "products"));
+        allProducts = []; // Clear previous products
+        querySnapshot.forEach(doc => {
+            allProducts.push({ id: doc.id, ...doc.data() });
+        });
+        renderProducts(allProducts);
+    } catch (error) {
+        console.error("Error loading products:", error);
+        grid.innerHTML = "<p>Could not load products.</p>";
+    }
 }
 
-// --- রেন্ডার ফাংশন ---
+// --- RENDER FUNCTIONS ---
 function renderProducts(productsToRender) {
     const grid = document.getElementById('product-grid');
+    if (!productsToRender || productsToRender.length === 0) {
+        grid.innerHTML = "<p>No products found. Add products in the admin panel.</p>";
+        return;
+    }
     grid.innerHTML = productsToRender.map(p => `
         <div class="product-card" data-id="${p.id}">
             <button class="wishlist-btn"><i class="far fa-heart"></i></button>
@@ -41,32 +55,25 @@ function renderProducts(productsToRender) {
         </div>
     `).join('');
 }
+
 function renderProductDetails(productId) {
-    const product = mockProducts.find(p => p.id === productId);
+    // FIX #1: Changed 'mockProducts' to 'allProducts'
+    const product = allProducts.find(p => p.id === productId);
+    if (!product) {
+        console.error("Product not found for details view!");
+        return;
+    }
+
     const container = document.getElementById('product-detail-content');
     container.innerHTML = `
         <img src="${product.imageUrl}" alt="${product.name}" class="product-image-lg">
         <div class="product-info">
-            <h5>${product.brand}</h5>
+            <h5>${product.category}</h5>
             <h2>${product.name}</h2>
-            <div class="rating">
-                <i class="fas fa-star"></i>
-                <span>${product.rating} (${product.reviews} Reviews)</span>
-            </div>
             <div class="product-price-details">
                 <span class="current-price">$${product.price.toFixed(2)} USD</span>
-                ${product.originalPrice ? `<span class="original-price">$${product.originalPrice.toFixed(2)}</span>` : ''}
-                ${product.originalPrice ? `<span class="discount-tag">-${Math.round((1 - product.price / product.originalPrice) * 100)}%</span>` : ''}
             </div>
-             <div class="product-variants horizontal-scroll">
-                <button class="variant-btn">30ml</button>
-                <button class="variant-btn selected">100ml</button>
-            </div>
-            <div class="product-info-row"><i class="fas fa-check-circle" style="color: var(--primary-color);"></i> In stock</div>
-            <p class="product-description">An exfoliating toner for targeting dullness, texture and signs of aging. Suited to all skin types.</p>
-            <div class="info-accordion"><span>Description</span> <i class="fas fa-chevron-right"></i></div>
-            <div class="info-accordion"><span>Ingredients</span> <i class="fas fa-chevron-right"></i></div>
-            <div class="info-accordion"><span>How to use</span> <i class="fas fa-chevron-right"></i></div>
+            <p class="product-description">${product.description || 'No description available.'}</p>
         </div>
     `;
     document.getElementById('add-to-cart-details-btn').dataset.id = productId;
@@ -76,16 +83,19 @@ function renderCart() {
     const container = document.getElementById('cart-items-container');
     if (cart.length === 0) {
         container.innerHTML = '<p>Your cart is empty.</p>';
+        updateCartTotal();
         return;
     }
     container.innerHTML = cart.map(item => {
-        const product = mockProducts.find(p => p.id === item.id);
+        // FIX #2: Changed 'mockProducts' to 'allProducts'
+        const product = allProducts.find(p => p.id === item.id);
+        if (!product) return ''; // If product not found, don't render it in cart
+
         return `
             <div class="cart-item">
                 <img src="${product.imageUrl}" alt="${product.name}">
                 <div class="cart-item-info">
                     <h4>${product.name}</h4>
-                    <p>${product.description || ''}</p>
                     <div class="cart-item-actions">
                         <strong>$${(product.price * item.quantity).toFixed(2)}</strong>
                         <div class="quantity-stepper">
@@ -104,29 +114,41 @@ function renderCart() {
 
 function updateCartTotal() {
     const total = cart.reduce((sum, item) => {
-        const product = mockProducts.find(p => p.id === item.id);
-        return sum + (product.price * item.quantity);
+        // FIX #3: Changed 'mockProducts' to 'allProducts'
+        const product = allProducts.find(p => p.id === item.id);
+        if (product) {
+            return sum + (product.price * item.quantity);
+        }
+        return sum; // If product not found, don't add to total
     }, 0);
-    document.getElementById('cart-total-price').textContent = `$${total.toFixed(2)} USD`;
-    document.getElementById('cart-badge-count').textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
-}
 
+    const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+    document.getElementById('cart-total-price').textContent = `$${total.toFixed(2)} USD`;
+    const badge = document.getElementById('cart-badge-count');
+    badge.textContent = totalQuantity;
+    badge.style.display = totalQuantity > 0 ? 'flex' : 'none';
+}
 
 // --- VIEW SWITCHING LOGIC ---
 function switchView(viewId) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    document.getElementById(viewId).classList.add('active');
+    const targetView = document.getElementById(viewId);
+    if (targetView) {
+        targetView.classList.add('active');
+    }
     document.querySelectorAll('.nav-item').forEach(n => {
         n.classList.toggle('active', n.dataset.view === viewId);
     });
 }
+window.switchView = switchView;
 
+// --- EVENT LISTENERS ---
 document.addEventListener('DOMContentLoaded', () => {
     loadCategoriesFromDB();
     loadProductsFromDB();
-    updateCartTotal(); // Load cart count on page load
+    updateCartTotal();
 
-    // Bottom Navigation
     document.querySelector('.bottom-nav').addEventListener('click', (e) => {
         const navItem = e.target.closest('.nav-item');
         if (navItem && navItem.dataset.view) {
@@ -138,7 +160,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Product Clicks
     document.getElementById('product-grid').addEventListener('click', (e) => {
         const card = e.target.closest('.product-card');
         const addBtn = e.target.closest('.add-btn');
@@ -153,28 +174,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Back Buttons
     document.getElementById('back-to-home-btn').addEventListener('click', () => switchView('home-view'));
     document.getElementById('back-from-cart-btn').addEventListener('click', () => switchView('home-view'));
 
-    // Details Page Add to Cart
     document.getElementById('add-to-cart-details-btn').addEventListener('click', (e) => {
         addToCart(e.target.dataset.id);
     });
 
-    // Cart Actions
     document.getElementById('cart-items-container').addEventListener('click', (e) => {
         if (e.target.closest('.quantity-change')) {
             const btn = e.target.closest('.quantity-change');
             updateQuantity(btn.dataset.id, parseInt(btn.dataset.change));
         }
         if (e.target.closest('.remove-item-btn')) {
-            removeFromCart(e.target.closest('.remove-item-btn').dataset.id);
+            removeFromCart(e.target.dataset.id);
         }
     });
 });
 
 // --- CART LOGIC ---
+function saveCart() {
+    localStorage.setItem('cart', JSON.stringify(cart));
+}
+
 function addToCart(productId) {
     const existingItem = cart.find(item => item.id === productId);
     if (existingItem) {
@@ -182,8 +204,10 @@ function addToCart(productId) {
     } else {
         cart.push({ id: productId, quantity: 1 });
     }
+    saveCart();
     updateCartTotal();
-    console.log('Cart:', cart);
+    // Optional: Add a visual confirmation
+    alert('Product added to cart!');
 }
 
 function updateQuantity(productId, change) {
@@ -193,6 +217,7 @@ function updateQuantity(productId, change) {
         if (item.quantity <= 0) {
             removeFromCart(productId);
         } else {
+            saveCart();
             renderCart();
         }
     }
@@ -200,5 +225,6 @@ function updateQuantity(productId, change) {
 
 function removeFromCart(productId) {
     cart = cart.filter(item => item.id !== productId);
+    saveCart();
     renderCart();
 }
