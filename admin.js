@@ -1,10 +1,14 @@
 import { db, auth } from './firebase.js';
+
+// **THE FIX IS HERE:** Auth functions are now imported from the correct 'firebase-auth.js' module.
 import {
-    // Authentication
     signInWithEmailAndPassword,
     onAuthStateChanged,
-    signOut,
-    // Firestore
+    signOut
+} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+
+// Firestore functions remain imported from the 'firebase-firestore.js' module.
+import {
     collection,
     addDoc,
     getDocs,
@@ -18,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginSection = document.getElementById('login-section');
     const dashboardSection = document.getElementById('dashboard-section');
 
-    // Check user's auth state
+    // This will now work correctly
     onAuthStateChanged(auth, user => {
         if (user) {
             loginSection.classList.remove('active');
@@ -36,11 +40,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const email = document.getElementById('admin-email').value;
         const password = document.getElementById('admin-password').value;
         const errorP = document.getElementById('login-error');
+        errorP.textContent = ''; // Clear previous errors
+
         try {
             await signInWithEmailAndPassword(auth, email, password);
-            errorP.textContent = '';
         } catch (error) {
-            errorP.textContent = error.message;
+            console.error("Login failed:", error.message);
+            if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+                errorP.textContent = "Invalid email or password.";
+            } else {
+                errorP.textContent = "An error occurred during login.";
+            }
         }
     });
 
@@ -82,24 +92,30 @@ async function manageCategories() {
     const listContainer = document.getElementById('category-list-container');
     const idField = document.getElementById('category-id');
     const nameField = document.getElementById('category-name');
+    const catCollection = collection(db, "categories");
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const id = idField.value;
-        const name = nameField.value;
+        const name = nameField.value.trim();
         if (!name) return;
 
-        if (id) { // Update
-            await setDoc(doc(db, "categories", id), { name });
-        } else { // Create
-            await addDoc(collection(db, "categories"), { name });
+        try {
+            if (id) { // Update
+                await setDoc(doc(db, "categories", id), { name });
+            } else { // Create
+                await addDoc(catCollection, { name });
+            }
+            form.reset();
+            idField.value = '';
+            await renderCategories();
+        } catch (error) {
+            console.error("Error saving category:", error);
         }
-        form.reset();
-        renderCategories();
     });
 
     async function renderCategories() {
-        const querySnapshot = await getDocs(collection(db, "categories"));
+        const querySnapshot = await getDocs(catCollection);
         listContainer.innerHTML = '';
         querySnapshot.forEach((doc) => {
             const category = { id: doc.id, ...doc.data() };
@@ -116,20 +132,26 @@ async function manageCategories() {
         });
     }
 
-    listContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('edit-btn')) {
-            idField.value = e.target.dataset.id;
-            nameField.value = e.target.dataset.name;
+    listContainer.addEventListener('click', async (e) => {
+        const target = e.target;
+        if (target.classList.contains('edit-btn')) {
+            idField.value = target.dataset.id;
+            nameField.value = target.dataset.name;
         }
-        if (e.target.classList.contains('delete-btn')) {
-            const id = e.target.dataset.id;
+        if (target.classList.contains('delete-btn')) {
+            const id = target.dataset.id;
             if (confirm('Are you sure you want to delete this category?')) {
-                deleteDoc(doc(db, "categories", id)).then(renderCategories);
+                try {
+                    await deleteDoc(doc(db, "categories", id));
+                    await renderCategories();
+                } catch (error) {
+                    console.error("Error deleting category:", error);
+                }
             }
         }
     });
 
-    renderCategories();
+    await renderCategories();
 }
 
 // --- PRODUCT MANAGEMENT ---
@@ -137,36 +159,49 @@ async function manageProducts() {
     const form = document.getElementById('product-form');
     const listContainer = document.getElementById('product-list-container');
     const categorySelect = document.getElementById('product-category');
+    const prodCollection = collection(db, "products");
 
-    // Populate category dropdown
-    const catSnapshot = await getDocs(collection(db, "categories"));
-    categorySelect.innerHTML = '<option value="">Select Category</option>';
-    catSnapshot.forEach(doc => {
-        categorySelect.innerHTML += `<option value="${doc.data().name}">${doc.data().name}</option>`;
-    });
+    async function populateCategoryDropdown() {
+        const catSnapshot = await getDocs(collection(db, "categories"));
+        categorySelect.innerHTML = '<option value="">Select Category</option>';
+        catSnapshot.forEach(doc => {
+            categorySelect.innerHTML += `<option value="${doc.data().name}">${doc.data().name}</option>`;
+        });
+    }
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const product = {
-            name: form['product-name'].value,
-            description: form['product-description'].value,
+            name: form['product-name'].value.trim(),
+            description: form['product-description'].value.trim(),
             price: parseFloat(form['product-price'].value),
-            imageUrl: form['product-image-url'].value,
+            imageUrl: form['product-image-url'].value.trim(),
             category: form['product-category'].value,
         };
         const id = form['product-id'].value;
-        
-        if (id) {
-            await setDoc(doc(db, "products", id), product);
-        } else {
-            await addDoc(collection(db, "products"), product);
+
+        if (!product.name || !product.price || !product.imageUrl || !product.category) {
+            alert("Please fill all required fields.");
+            return;
         }
-        form.reset();
-        renderProducts();
+        
+        try {
+            if (id) {
+                await setDoc(doc(db, "products", id), product);
+            } else {
+                await addDoc(prodCollection, product);
+            }
+            form.reset();
+            form['product-id'].value = '';
+            await renderProducts();
+        } catch(error) {
+            console.error("Error saving product:", error);
+        }
     });
     
-     async function renderProducts() {
-        const querySnapshot = await getDocs(collection(db, "products"));
+    async function renderProducts() {
+        await populateCategoryDropdown(); // Refresh categories in dropdown
+        const querySnapshot = await getDocs(prodCollection);
         listContainer.innerHTML = '';
         querySnapshot.forEach((doc) => {
             const product = { id: doc.id, ...doc.data() };
@@ -187,24 +222,37 @@ async function manageProducts() {
                 form['product-price'].value = product.price;
                 form['product-image-url'].value = product.imageUrl;
                 form['product-category'].value = product.category;
+                window.scrollTo(0, 0); // Scroll to top to see the form
             });
-             item.querySelector('.delete-btn').addEventListener('click', () => {
-                 if (confirm('Are you sure?')) {
-                    deleteDoc(doc(db, "products", product.id)).then(renderProducts);
-                 }
+
+            item.querySelector('.delete-btn').addEventListener('click', async () => {
+                if (confirm('Are you sure you want to delete this product?')) {
+                    try {
+                        await deleteDoc(doc(db, "products", product.id));
+                        await renderProducts();
+                    } catch (error) {
+                        console.error("Error deleting product: ", error);
+                    }
+                }
             });
         });
     }
-    renderProducts();
+    
+    await renderProducts();
 }
 
 
 // --- ORDER MANAGEMENT ---
+// This function remains the same as the previous version.
 async function manageOrders() {
     const listContainer = document.getElementById('order-list-container');
     
     async function renderOrders() {
         const querySnapshot = await getDocs(collection(db, "orders"));
+        if (querySnapshot.empty) {
+            listContainer.innerHTML = '<p>No orders found.</p>';
+            return;
+        }
         listContainer.innerHTML = '';
         querySnapshot.forEach(doc => {
             const order = { id: doc.id, ...doc.data() };
@@ -215,7 +263,7 @@ async function manageOrders() {
 
             item.innerHTML = `
                 <p><strong>Order ID:</strong> ${order.id}</p>
-                <p><strong>Customer:</strong> ${order.customerEmail}</p>
+                <p><strong>Customer:</strong> ${order.customerEmail || 'N/A'}</p>
                 <p><strong>Total:</strong> $${order.total.toFixed(2)}</p>
                 <p><strong>Status:</strong> 
                     <select class="order-status-selector" data-id="${order.id}">
@@ -234,14 +282,12 @@ async function manageOrders() {
     }
 
     listContainer.addEventListener('click', async e => {
-        // Generate Razorpay Link
         if (e.target.classList.contains('generate-link-btn')) {
             const orderId = e.target.dataset.id;
             const amount = e.target.dataset.amount;
             
-            // **গুরুত্বপূর্ণ:** এখানে সরাসরি API কল করা নিরাপদ নয়। 
-            // এটি Firebase Function এর মাধ্যমে করতে হবে।
-            // আপাতত আমরা একটি ডেমো লিঙ্ক তৈরি করছি।
+            // This part still uses a prompt for demonstration.
+            // In a real app, this would trigger a Firebase Function.
             const razorpayLink = prompt(`Generating link for Order ${orderId} of amount $${amount}. \nEnter mock payment link:`, `https://rzp.io/i/mock${orderId}`);
             
             if (razorpayLink) {
@@ -254,7 +300,6 @@ async function manageOrders() {
     });
     
     listContainer.addEventListener('change', async e => {
-        // Update Order Status
         if (e.target.classList.contains('order-status-selector')) {
             const orderId = e.target.dataset.id;
             const newStatus = e.target.value;
@@ -265,5 +310,5 @@ async function manageOrders() {
         }
     });
 
-    renderOrders();
+    await renderOrders();
 }
