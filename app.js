@@ -1,5 +1,5 @@
 import { db } from './firebase.js';
-import { collection, getDocs, addDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 let allProducts = [];
 
@@ -38,45 +38,44 @@ function saveUserDetails(name, phone) {
     localStorage.setItem('customerPhone', phone);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
-    // Save to DB for admin panel viewing
-    addDoc(collection(db, "customers"), { name, phone, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
 // --- DATA FETCHING ---
 async function loadData() {
     await loadBannersFromDB();
+    await loadCategoriesFromDB();
     await loadProductsFromDB();
 }
-
 async function loadBannersFromDB() {
     const container = document.getElementById('promo-carousel');
-    const dotsContainer = document.getElementById('carousel-dots');
-    try {
-        const q = query(collection(db, "banners"), orderBy("createdAt", "desc"));
-        const querySnapshot = await getDocs(q);
-        if (querySnapshot.empty) {
-            container.parentElement.style.display = 'none';
-            return;
-        }
-        container.innerHTML = '';
-        querySnapshot.forEach(doc => {
-            container.innerHTML += `<div class="carousel-slide"><img src="${doc.data().imageUrl}" alt="Promotional Banner"></div>`;
-        });
-        initCarousel();
-    } catch (error) { console.error("Error loading banners:", error); }
+    const q = query(collection(db, "banners"), orderBy("createdAt", "desc"));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) { container.parentElement.style.display = 'none'; return; }
+    container.innerHTML = '';
+    querySnapshot.forEach(doc => {
+        container.innerHTML += `<div class="carousel-slide"><img src="${doc.data().imageUrl}" alt="Promotional Banner"></div>`;
+    });
+    initCarousel();
 }
-
+async function loadCategoriesFromDB() {
+    const container = document.getElementById('category-list-short');
+    const q = query(collection(db, "categories"));
+    const querySnapshot = await getDocs(q);
+    container.innerHTML = '';
+    querySnapshot.forEach(doc => {
+        container.innerHTML += `<div class="category-chip">${doc.data().name}</div>`;
+    });
+}
 async function loadProductsFromDB() {
     const grid = document.getElementById('product-grid');
     grid.innerHTML = "<p>Loading products...</p>";
-    try {
-        const querySnapshot = await getDocs(collection(db, "products"));
-        allProducts = [];
-        querySnapshot.forEach(doc => allProducts.push({ id: doc.id, ...doc.data() }));
-        renderProducts(allProducts);
-    } catch (error) { console.error("Error loading products:", error); }
+    allProducts = [];
+    const querySnapshot = await getDocs(collection(db, "products"));
+    querySnapshot.forEach(doc => allProducts.push({ id: doc.id, ...doc.data() }));
+    renderProducts(allProducts);
 }
 
+// --- "MY ORDERS" PAGE LOGIC ---
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
@@ -105,11 +104,14 @@ async function loadCustomerOrders() {
                     <p>Status: <span class="order-status ${order.status}">${order.status}</span></p>
                 </div>`;
         });
-    } catch (error) { console.error("Error loading orders:", error); }
+    } catch (error) {
+        console.error("Error loading orders:", error);
+        container.innerHTML = "<p>Could not load your orders.</p>";
+    }
 }
 
 // --- "BUY NOW" WORKFLOW ---
-async function handleBuyNow(productId) {
+function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     const customerPhone = localStorage.getItem('customerPhone');
     if (!customerName || !customerPhone) {
@@ -122,19 +124,21 @@ async function handleBuyNow(productId) {
         alert("Sorry, this product cannot be purchased right now.");
         return;
     }
-    try {
-        const orderRef = await addDoc(collection(db, "orders"), {
-            customerName,
-            customerPhone,
-            productName: product.name,
-            productId: product.id,
-            amount: product.price,
-            status: "pending",
-            createdAt: new Date()
-        });
-        console.log("Created PENDING order:", orderRef.id);
-        window.location.href = product.paymentLink;
-    } catch (error) { console.error("Error creating pending order:", error); }
+    
+    // NEW SIMPLER LOGIC: Add customer and product info to the link
+    // and redirect immediately. No "pending" orders are created.
+    const paymentUrl = new URL(product.paymentLink);
+    // Add info for the webhook to use later
+    paymentUrl.searchParams.set('notes[product_id]', product.id);
+    paymentUrl.searchParams.set('notes[product_name]', product.name);
+    paymentUrl.searchParams.set('notes[customer_name]', customerName);
+    paymentUrl.searchParams.set('notes[customer_phone]', customerPhone);
+    // Pre-fill the form for a better user experience
+    paymentUrl.searchParams.set('prefill[name]', customerName);
+    paymentUrl.searchParams.set('prefill[contact]', customerPhone);
+    
+    console.log("Redirecting to Razorpay...");
+    window.location.href = paymentUrl.toString();
 }
 
 // --- UI & NAVIGATION ---
@@ -175,9 +179,7 @@ function renderProducts(products) {
         return `
         <div class="product-card" data-id="${p.id}">
             <button class="wishlist-btn"><i class="far fa-heart"></i></button>
-            <div class="product-image-container">
-                <img src="${p.imageUrl}" alt="${p.name}">
-            </div>
+            <div class="product-image-container"><img src="${p.imageUrl}" alt="${p.name}"></div>
             <p class="brand">${p.category}</p>
             <p class="name">${p.name}</p>
             <div class="price-container">${priceHTML}${discountTag}</div>
@@ -192,14 +194,11 @@ function renderProductDetails(productId) {
     if (product.originalPrice && product.originalPrice > product.price) {
         priceHTML += `<span class="original-price" style="font-size: 1.2rem;">₹${product.originalPrice.toFixed(2)}</span>`;
     }
-    
-    // Multiple image carousel for details page
     let imageCarouselHTML = `<div class="carousel-container detail-image-carousel">`;
     product.imageUrls.forEach(url => {
         imageCarouselHTML += `<div class="carousel-slide"><img src="${url}" alt="${product.name}" class="product-image-lg"></div>`;
     });
     imageCarouselHTML += `</div>`;
-
     container.innerHTML = `
         ${imageCarouselHTML}
         <div class="product-info">
@@ -214,10 +213,7 @@ function initCarousel() {
     const carousel = document.getElementById('promo-carousel');
     const dotsContainer = document.getElementById('carousel-dots');
     const slides = carousel.querySelectorAll('.carousel-slide');
-    if (slides.length <= 1) {
-        dotsContainer.style.display = 'none';
-        return;
-    }
+    if (slides.length <= 1) { dotsContainer.style.display = 'none'; return; }
     dotsContainer.innerHTML = '';
     slides.forEach((_, index) => {
         dotsContainer.innerHTML += `<div class="dot ${index === 0 ? 'active' : ''}" data-index="${index}"></div>`;
