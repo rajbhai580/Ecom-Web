@@ -1,9 +1,8 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+// firebase.js
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -16,10 +15,19 @@ const firebaseConfig = {
   appId: "1:703244299489:web:0e5482afa8b8f4c9f19ba0"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
 
-// Export for use in other scripts
+// Initialize Firebase
+let app, db, auth;
+try {
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
+    console.log("Firebase Initialized Successfully.");
+} catch (error) {
+    console.error("Error initializing Firebase:", error);
+    // Display an error to the user on the page
+    document.body.innerHTML = `<div style="color: red; padding: 20px;">Error initializing Firebase. Please check your firebaseConfig details in firebase.js and ensure your Firebase project is set up correctly.</div>`;
+}
+
+// Export the initialized services
 export { db, auth };
