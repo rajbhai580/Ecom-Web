@@ -6,7 +6,6 @@ if (!db || !auth) {
     console.error("Halting admin script: Firebase did not initialize correctly.");
 } else {
     document.addEventListener('DOMContentLoaded', () => {
-        // --- Login/Logout and Auth state logic ---
         const loginSection = document.getElementById('login-section');
         const dashboardSection = document.getElementById('dashboard-section');
 
@@ -58,8 +57,82 @@ if (!db || !auth) {
         manageOrders();
     }
 
+    // --- UPLOAD IMAGE LOGIC ---
+    async function uploadImage(file, dropZoneEl) {
+        const feedbackEl = document.createElement('div');
+        feedbackEl.className = 'upload-feedback';
+        feedbackEl.textContent = 'Uploading...';
+        dropZoneEl.appendChild(feedbackEl);
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        try {
+            const response = await fetch('/api/upload-image', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const result = await response.json();
+            
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Upload failed');
+            }
+            
+            feedbackEl.textContent = 'Success!';
+            setTimeout(() => feedbackEl.remove(), 1500);
+            return result.url; // Return the URL on success
+
+        } catch (error) {
+            console.error('Upload error:', error);
+            feedbackEl.textContent = 'Upload Failed!';
+            feedbackEl.style.color = 'red';
+            setTimeout(() => feedbackEl.remove(), 3000);
+            return null; // Return null on failure
+        }
+    }
+
+    function setupDropZone(dropZoneId, isMultiple, onUpload) {
+        const dropZoneEl = document.getElementById(dropZoneId);
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.multiple = isMultiple;
+        fileInput.style.display = 'none';
+        dropZoneEl.appendChild(fileInput);
+
+        dropZoneEl.addEventListener('click', () => fileInput.click());
+        dropZoneEl.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZoneEl.classList.add('drag-over');
+        });
+        dropZoneEl.addEventListener('dragleave', () => dropZoneEl.classList.remove('drag-over'));
+        dropZoneEl.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZoneEl.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length) {
+                handleFiles(files);
+            }
+        });
+        fileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (files.length) {
+                handleFiles(files);
+            }
+        });
+
+        async function handleFiles(files) {
+            for (const file of files) {
+                const url = await uploadImage(file, dropZoneEl);
+                if (url) {
+                    onUpload(url);
+                }
+            }
+        }
+    }
+
     async function manageCategories() {
-        // ... This function is correct from the previous version ...
         const form = document.getElementById('category-form');
         const listContainer = document.getElementById('category-list-container');
         const idField = document.getElementById('category-id');
@@ -117,6 +190,58 @@ if (!db || !auth) {
         const listContainer = document.getElementById('product-list-container');
         const categorySelect = document.getElementById('product-category');
         const prodCollection = collection(db, "products");
+        
+        const bannerUrlInput = document.getElementById('product-banner-url');
+        const detailUrlsTextarea = document.getElementById('product-detail-urls');
+        const bannerPreview = document.querySelector('#banner-drop-zone .image-preview');
+        const detailPreview = document.querySelector('#detail-drop-zone .image-preview-multiple');
+        const bannerDropZone = document.getElementById('banner-drop-zone');
+        
+        // --- Setup Drop Zones ---
+        setupDropZone('banner-drop-zone', false, (url) => {
+            bannerUrlInput.value = url;
+            bannerPreview.innerHTML = `<img src="${url}" alt="Banner preview">`;
+            bannerDropZone.classList.add('has-image');
+        });
+
+        setupDropZone('detail-drop-zone', true, (url) => {
+            const currentUrls = detailUrlsTextarea.value ? detailUrlsTextarea.value.split('\n') : [];
+            currentUrls.push(url);
+            detailUrlsTextarea.value = currentUrls.join('\n');
+            renderDetailPreviews();
+        });
+
+        function renderDetailPreviews() {
+            detailPreview.innerHTML = '';
+            const urls = detailUrlsTextarea.value ? detailUrlsTextarea.value.split('\n') : [];
+            urls.forEach((url, index) => {
+                if (!url) return;
+                const imgContainer = document.createElement('div');
+                imgContainer.className = 'img-container';
+                imgContainer.innerHTML = `<img src="${url}" alt="Detail preview ${index + 1}"><button type="button" class="remove-img-btn" data-index="${index}">&times;</button>`;
+                detailPreview.appendChild(imgContainer);
+            });
+        }
+        
+        detailPreview.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-img-btn')) {
+                const indexToRemove = parseInt(e.target.dataset.index, 10);
+                let urls = detailUrlsTextarea.value.split('\n');
+                urls.splice(indexToRemove, 1);
+                detailUrlsTextarea.value = urls.join('\n');
+                renderDetailPreviews();
+            }
+        });
+
+        function resetProductForm() {
+            form.reset();
+            form['product-id'].value = '';
+            bannerUrlInput.value = '';
+            detailUrlsTextarea.value = '';
+            bannerPreview.innerHTML = '';
+            bannerDropZone.classList.remove('has-image');
+            detailPreview.innerHTML = '';
+        }
 
         async function populateCategoryDropdown() {
             const catSnapshot = await getDocs(collection(db, "categories"));
@@ -127,11 +252,9 @@ if (!db || !auth) {
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            // --- NEW IMAGE LOGIC ---
-            const bannerUrl = form['product-banner-url'].value.trim();
-            const detailUrlsText = form['product-detail-urls'].value.trim();
-            const detailUrls = detailUrlsText ? detailUrlsText.split('\n').filter(url => url) : [];
-            const allImageUrls = [bannerUrl, ...detailUrls];
+            const bannerUrl = bannerUrlInput.value;
+            const detailUrls = detailUrlsTextarea.value ? detailUrlsTextarea.value.split('\n').filter(url => url) : [];
+            const allImageUrls = [bannerUrl, ...detailUrls].filter(url => url);
 
             if (!bannerUrl) {
                 alert("Please provide the Main Product Image.");
@@ -144,8 +267,8 @@ if (!db || !auth) {
                 description: form['product-description'].value.trim(),
                 price: parseFloat(form['product-price'].value),
                 originalPrice: originalPriceValue ? parseFloat(originalPriceValue) : null,
-                imageUrl: bannerUrl, // The main image for the grid
-                imageUrls: allImageUrls, // The full array for the details page
+                imageUrl: bannerUrl,
+                imageUrls: allImageUrls,
                 paymentLink: form['product-payment-link'].value.trim(),
                 category: form['product-category'].value,
             };
@@ -161,8 +284,7 @@ if (!db || !auth) {
             } else {
                 await addDoc(prodCollection, product);
             }
-            form.reset();
-            form['product-id'].value = '';
+            resetProductForm();
             await renderProducts();
         });
         
@@ -178,14 +300,22 @@ if (!db || !auth) {
                 listContainer.appendChild(item);
 
                 item.querySelector('.edit-btn').addEventListener('click', () => {
+                    resetProductForm(); // Clear the form first
                     form['product-id'].value = product.id;
                     form['product-name'].value = product.name;
                     form['product-description'].value = product.description;
                     form['product-original-price'].value = product.originalPrice || '';
                     form['product-price'].value = product.price;
-                    // --- NEW IMAGE LOGIC FOR EDITING ---
-                    form['product-banner-url'].value = product.imageUrl || '';
-                    form['product-detail-urls'].value = (product.imageUrls || []).slice(1).join('\n');
+                    
+                    bannerUrlInput.value = product.imageUrl || '';
+                    if (product.imageUrl) {
+                        bannerPreview.innerHTML = `<img src="${product.imageUrl}">`;
+                        bannerDropZone.classList.add('has-image');
+                    }
+                    
+                    detailUrlsTextarea.value = (product.imageUrls || []).filter(url => url !== product.imageUrl).join('\n');
+                    renderDetailPreviews();
+
                     form['product-payment-link'].value = product.paymentLink;
                     form['product-category'].value = product.category;
                     window.scrollTo(0, 0);
@@ -203,7 +333,6 @@ if (!db || !auth) {
     }
     
     async function manageBanners() {
-        // ... This function is correct from the previous version ...
         const form = document.getElementById('banner-form');
         const listContainer = document.getElementById('banner-list-container');
         const bannerCollection = collection(db, "banners");
@@ -243,7 +372,6 @@ if (!db || !auth) {
     }
     
     async function manageCustomers() {
-        // ... This function is correct from the previous version ...
         const listContainer = document.getElementById('customer-list-container');
         const customerCollection = collection(db, "customers");
         const querySnapshot = await getDocs(customerCollection);
@@ -258,7 +386,6 @@ if (!db || !auth) {
     }
 
     async function manageOrders() {
-        // ... This function is correct from the previous version ...
         const listContainer = document.getElementById('order-list-container');
         async function renderOrders() {
             const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
