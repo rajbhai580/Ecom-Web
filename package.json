@@ -1,0 +1,12 @@
+{
+  "name": "ecom-pwa",
+  "version": "1.0.0",
+  "description": "E-commerce PWA with Vanilla JS",
+  "main": "index.js",
+  "private": true,
+  "dependencies": {
+    "formidable": "^3.5.1",
+    "node-fetch": "^3.3.2",
+    "form-data": "^4.0.0"
+  }
+}
