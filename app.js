@@ -1,4 +1,3 @@
-javascript
 import { db } from './firebase.js';
 import { collection, getDocs, query, where, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
@@ -6,8 +5,8 @@ let allProducts = [];
 let currentlyDisplayedProducts = [];
 
 const avatarUrls = {
-    male: 'https://i.ibb.co/68vjVbB/male-avatar.png',
-    female: 'https://i.ibb.co/VMyP10f/female-avatar.png'
+    male: 'https://i.postimg.cc/9MdxW95M/male-avatar.png',
+    female: 'https://i.postimg.cc/nLpG5317/female-avatar.png'
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -222,7 +221,7 @@ function handleSearch(e) {
 function resetFiltersAndSearch() {
     document.getElementById('search-input').value = '';
     document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
-    document.querySelector('.category-chip')?.classList.add('active'); // Activate "All"
+    document.querySelector('.category-chip')?.classList.add('active');
     currentlyDisplayedProducts = [...allProducts];
     renderProducts(currentlyDisplayedProducts);
 }
