@@ -122,3 +122,34 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--white); color
 .order-item p { margin: 0.5rem 0; }
 .order-item strong { min-width: 120px; display: inline-block; }
 .error-message { color: red; margin-top: 1rem; }
+/* Add this CSS to style.css */
+
+.horizontal-scroll {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.8rem;
+    padding-bottom: 1rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.horizontal-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.category-chip {
+    background-color: var(--background-color);
+    border-radius: 20px;
+    padding: 0.7rem 1.2rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.category-chip:hover {
+    background-color: var(--text-color);
+    color: var(--white);
+}
