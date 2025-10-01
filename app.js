@@ -138,7 +138,8 @@ async function loadCustomerOrders() {
     }
     container.innerHTML = "<p>Loading your orders...</p>";
     try {
-        const q = query(collection(db, "orders"), where("customerPhone", "==", customerPhone), orderBy("createdAt", "desc"));
+        const ordersRef = collection(db, "orders");
+        const q = query(ordersRef, where("customerPhone", "==", customerPhone), orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
         if (querySnapshot.empty) { container.innerHTML = "<p>You haven't placed any orders yet.</p>"; return; }
         container.innerHTML = '';
@@ -150,32 +151,50 @@ async function loadCustomerOrders() {
     } catch (error) { console.error("Error loading customer-specific orders:", error); }
 }
 
+
+// ===================================================================
+// THIS IS THE FINAL, CORRECTED "BUY NOW" FUNCTION (NO FAKE ORDERS)
+// ===================================================================
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     const customerPhone = localStorage.getItem('customerPhone');
-    if (!customerName || !customerPhone) { alert("Please provide your details first."); checkUserDetails(); return; }
-    const product = allProducts.find(p => p.id === productId);
-    if (!product || !product.paymentLink) { alert("Sorry, this product cannot be purchased right now."); return; }
     
-    addDoc(collection(db, "orders"), {
-        customerName,
-        customerPhone,
-        productName: product.name,
-        productId: product.id,
-        amount: product.price,
-        status: "pending",
-        createdAt: new Date()
-    }).then(orderRef => {
-        console.log("Created PENDING order:", orderRef.id);
-        const paymentUrl = new URL(product.paymentLink);
-        paymentUrl.searchParams.set('callback_url', `${window.location.origin}?order_id=${orderRef.id}`);
-        paymentUrl.searchParams.set('callback_method', 'get');
-        window.location.href = paymentUrl.toString();
-    }).catch(error => {
-        console.error("Error creating pending order:", error);
-        alert("Could not initiate purchase. Please try again.");
-    });
+    // Check if user is logged in
+    if (!customerName || !customerPhone) {
+        alert("Please provide your details first.");
+        checkUserDetails();
+        return;
+    }
+    
+    const product = allProducts.find(p => p.id === productId);
+    if (!product || !product.paymentLink) {
+        alert("Sorry, this product cannot be purchased right now.");
+        return;
+    }
+    
+    // DO NOT CREATE A PENDING ORDER HERE.
+    // Instead, we build the URL with all the info the webhook will need.
+    const paymentUrl = new URL(product.paymentLink);
+    
+    // Add product and customer info to the 'notes' field for the webhook
+    paymentUrl.searchParams.set('notes[product_id]', product.id);
+    paymentUrl.searchParams.set('notes[product_name]', product.name);
+    paymentUrl.searchParams.set('notes[customer_name]', customerName);
+    paymentUrl.searchParams.set('notes[customer_phone]', customerPhone);
+
+    // Pre-fill the Razorpay form for a better user experience
+    paymentUrl.searchParams.set('prefill[name]', customerName);
+    paymentUrl.searchParams.set('prefill[contact]', customerPhone);
+    
+    // Add the callback URL to bring the user back to the order page
+    paymentUrl.searchParams.set('callback_url', `${window.location.origin}?view=orders`);
+    paymentUrl.searchParams.set('callback_method', 'get');
+    
+    console.log("Redirecting to Razorpay with all necessary info...");
+    window.location.href = paymentUrl.toString();
 }
+// ===================================================================
+
 
 function handleProductGridClick(e) {
     const buyBtn = e.target.closest('.buy-now-grid-btn');
@@ -270,42 +289,18 @@ function renderProducts(products) {
     }).join('');
 }
 
-// ===================================================================
-// THIS IS THE FINAL, CORRECTED "renderProductDetails" FUNCTION
-// ===================================================================
 function renderProductDetails(productId) {
     const product = allProducts.find(p => p.id === productId);
-    if (!product) {
-        console.error(`Could not find product with ID: ${productId}`);
-        return;
-    }
+    if (!product) { console.error(`Could not find product with ID: ${productId}`); return; }
     const container = document.getElementById('product-detail-content');
-    
     let priceHTML = `<span class="current-price" style="font-size: 1.8rem;">₹${product.price.toFixed(2)}</span>`;
-    
-    // **THE FIX IS HERE: Using 'product.originalPrice' instead of 'p.originalPrice'**
-    if (product.originalPrice && product.originalPrice > product.price) {
-        priceHTML += `<span class="original-price" style="font-size: 1.2rem;">₹${product.originalPrice.toFixed(2)}</span>`;
-    }
-    
+    if (product.originalPrice && product.originalPrice > product.price) { priceHTML += `<span class="original-price" style="font-size: 1.2rem;">₹${product.originalPrice.toFixed(2)}</span>`; }
     let imageCarouselHTML = `<div class="carousel-container detail-image-carousel">`;
-    (product.imageUrls || [product.imageUrl]).forEach(url => {
-        imageCarouselHTML += `<div class="carousel-slide"><img src="${url}" alt="${product.name}" class="product-image-lg"></div>`;
-    });
+    (product.imageUrls || [product.imageUrl]).forEach(url => { imageCarouselHTML += `<div class="carousel-slide"><img src="${url}" alt="${product.name}" class="product-image-lg"></div>`; });
     imageCarouselHTML += `</div>`;
-    
-    container.innerHTML = `
-        ${imageCarouselHTML}
-        <div class="product-info">
-            <h5>${product.category}</h5>
-            <h2>${product.name}</h2>
-            <div class="price-container">${priceHTML}</div>
-            <p class="product-description">${product.description || ''}</p>
-        </div>`;
-    
+    container.innerHTML = `${imageCarouselHTML}<div class="product-info"><h5>${product.category}</h5><h2>${product.name}</h2><div class="price-container">${priceHTML}</div><p class="product-description">${product.description || ''}</p></div>`;
     document.getElementById('buy-now-btn').dataset.id = productId;
 }
-// ===================================================================
 
 function initCarousel() {
     const carousel = document.getElementById('promo-carousel');
