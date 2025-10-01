@@ -1,31 +1,28 @@
-// admin.js
-
 import { db, auth } from './firebase.js';
 
-// If firebase.js failed, db or auth might not be available. Stop execution.
+// All imports MUST be at the top level.
+import {
+    signInWithEmailAndPassword,
+    onAuthStateChanged,
+    signOut
+} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+
+import {
+    collection,
+    addDoc,
+    getDocs,
+    doc,
+    setDoc,
+    deleteDoc,
+    updateDoc
+} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+
+// Now, we run the main logic, but only if Firebase initialized correctly.
 if (!db || !auth) {
-    console.error("Firestore DB or Auth is not available. Halting admin script.");
-    // You could also show an error message on the admin page itself.
+    console.error("Halting admin script: Firebase did not initialize correctly (db or auth is missing).");
 } else {
-    // All code now runs inside this 'else' block
-    console.log("Admin script started. DB and Auth objects are available.");
-
-    import {
-        signInWithEmailAndPassword,
-        onAuthStateChanged,
-        signOut
-    } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-
-    import {
-        collection,
-        addDoc,
-        getDocs,
-        doc,
-        setDoc,
-        deleteDoc,
-        updateDoc
-    } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-
+    // --- All application logic now runs safely inside this block ---
+    
     document.addEventListener('DOMContentLoaded', () => {
         const loginSection = document.getElementById('login-section');
         const dashboardSection = document.getElementById('dashboard-section');
@@ -41,7 +38,7 @@ if (!db || !auth) {
             }
         });
 
-        const loginBtn = document.getElementById('admin-login-btn');
+        const loginBtn = document.getElementById('admin--login-btn');
         loginBtn.addEventListener('click', async () => {
             const email = document.getElementById('admin-email').value;
             const password = document.getElementById('admin-password').value;
@@ -88,9 +85,9 @@ if (!db || !auth) {
         manageOrders();
     }
 
-    // --- All manage functions (Categories, Products, Orders) ---
-    // These functions now use the guaranteed-to-be-initialized 'db' object.
-    // The code for these functions is the same as the previous correct version.
+    // --- CATEGORY, PRODUCT, and ORDER management functions ---
+    // The code for these functions remains unchanged from the last version.
+    // They are correct and will now execute properly.
     
     async function manageCategories() {
         const form = document.getElementById('category-form');
