@@ -10,9 +10,10 @@
     --discount-bg: #e8f5e9;
 }
 
-/* --- General Styles --- */
+/* --- General Customer Styles --- */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Poppins', sans-serif; background-color: var(--white); color: var(--text-color); margin: 0 auto; max-width: 450px; box-shadow: 0 0 20px rgba(0,0,0,0.1); padding-bottom: 80px; }
+body { font-family: 'Poppins', sans-serif; background-color: var(--background-color); color: var(--text-color); }
+#app-container { margin: 0 auto; max-width: 450px; background-color: var(--white); box-shadow: 0 0 20px rgba(0,0,0,0.1); padding-bottom: 80px; min-height: 100vh; }
 .view { display: none; }
 .view.active { display: block; }
 .hidden { display: none !important; }
@@ -72,11 +73,8 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--white); color
 
 /* --- My Orders Page --- */
 .customer-order-card { background-color: var(--background-color); padding: 1rem; border-radius: 10px; margin-bottom: 1rem; border: 1px solid var(--border-color); }
-.customer-order-card h4 { font-size: 1.1rem; margin-bottom: 0.5rem; }
-.customer-order-card p { color: var(--text-light); margin-bottom: 0.3rem; }
 .order-status { display: inline-block; padding: 0.3rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.8rem; text-transform: capitalize; }
 .order-status.paid { background-color: var(--discount-bg); color: var(--primary-color); }
-.order-status.pending { background-color: #fff9c4; color: #f57f17; }
 
 /* --- Modal/Popup & Avatar Selection --- */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; }
@@ -89,16 +87,15 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--white); color
 #user-details-form button { background-color: var(--primary-color); color: white; border: none; font-weight: 600; }
 
 /* --- Category Chips --- */
-.horizontal-scroll { display: flex; overflow-x: auto; gap: 0.8rem; padding-bottom: 1rem; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.horizontal-scroll { display: flex; overflow-x: auto; gap: 0.8rem; padding-bottom: 1rem; }
 .horizontal-scroll::-webkit-scrollbar { display: none; }
-.category-chip { background-color: var(--background-color); border-radius: 20px; padding: 0.7rem 1.2rem; font-size: 0.9rem; font-weight: 500; white-space: nowrap; cursor: pointer; border: 1px solid var(--border-color); transition: background-color 0.2s, color 0.2s; }
-.category-chip.active, .category-chip:hover { background-color: var(--text-color); color: var(--white); border-color: var(--text-color); }
+.category-chip { background-color: var(--background-color); border-radius: 20px; padding: 0.7rem 1.2rem; font-size: 0.9rem; white-space: nowrap; cursor: pointer; border: 1px solid var(--border-color); transition: background-color 0.2s; }
+.category-chip.active, .category-chip:hover { background-color: var(--text-color); color: var(--white); }
 
 /* --- Search Bar --- */
 #search-bar { position: fixed; top: -100px; left: 0; right: 0; max-width: 450px; margin: 0 auto; background-color: var(--white); padding: 1rem; display: flex; gap: 1rem; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1500; transition: top 0.3s ease-in-out; }
 #search-bar.active { top: 0; }
 #search-input { width: 100%; border: none; background-color: var(--background-color); padding: 0.8rem 1rem; border-radius: 20px; font-size: 1rem; }
-#search-input:focus { outline: none; box-shadow: 0 0 0 2px var(--primary-color); }
 #no-products-message { text-align: center; padding: 3rem 1rem; color: var(--text-light); }
 
 /* --- Profile Page --- */
@@ -114,3 +111,30 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--white); color
 .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 450px; margin: 0 auto; display: flex; justify-content: space-around; background-color: var(--white); padding: 0.8rem 0; border-top: 1px solid var(--border-color); z-index: 1000; }
 .nav-item { text-decoration: none; color: var(--text-light); font-size: 1.5rem; }
 .nav-item.active { color: var(--text-color); }
+
+/* 
+============================================
+--- ADMIN PANEL STYLES ---
+============================================
+*/
+#admin-container { max-width: 1200px; margin: 2rem auto; padding: 1rem; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+.admin-view { display: none; }
+.admin-view.active { display: block; }
+.form-container { max-width: 400px; margin: 5rem auto; text-align: center; }
+.form-container h2 { margin-bottom: 1.5rem; }
+.admin-form { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; padding: 1.5rem; border: 1px solid #eee; border-radius: 8px; }
+.admin-form label { font-weight: 600; text-align: left; font-size: 0.9rem; color: #555; }
+.admin-form input, .admin-form textarea, .admin-form select { padding: 0.8rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 5px; font-family: 'Poppins', sans-serif; }
+#admin-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 1rem; margin-bottom: 1rem; }
+#admin-nav { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+#admin-nav button { padding: 0.8rem 1.2rem; border: 1px solid #ccc; background-color: #f9f9f9; cursor: pointer; border-radius: 5px; }
+#admin-nav button.active { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
+.content-view { padding: 1rem; }
+.list-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border: 1px solid #eee; border-radius: 5px; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 1rem; }
+.list-item .item-actions button { margin-left: 0.5rem; padding: 0.3rem 0.6rem; cursor: pointer; border-radius: 3px; }
+.edit-btn { background-color: #ffc107; border: none; }
+.delete-btn { background-color: #dc3545; border: none; color: white; }
+.order-item { background-color: #f9f9f9; border: 1px solid #ddd; padding: 1rem; margin-bottom: 1rem; border-radius: 5px; }
+.order-item p { margin: 0.5rem 0; }
+.order-item strong { min-width: 120px; display: inline-block; }
+.error-message { color: red; margin-top: 1rem; }
