@@ -5,12 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel</title>
     <link rel="stylesheet" href="style.css">
+    <!-- FIX: Added favicon link to prevent 404 error -->
+    <link rel="icon" href="/images/icons/icon-192x192.png">
 </head>
 <body>
     <div id="admin-container">
         <!-- Login Section -->
         <section id="login-section" class="admin-view active">
-            <!-- ... Login form remains the same ... -->
+            <div class="form-container">
+                <h2>Admin Login</h2>
+                <input type="email" id="admin-email" placeholder="Email" required>
+                <input type="password" id="admin-password" placeholder="Password" required>
+                <!-- IMPORTANT: The JS needs this button with id="admin-login-btn" -->
+                <button id="admin-login-btn">Login</button>
+                <p id="login-error" class="error-message"></p>
+            </div>
         </section>
 
         <!-- Dashboard Section -->
@@ -27,11 +36,22 @@
             </nav>
 
             <main id="admin-main-content">
-                <!-- ... Category Management view remains the same ... -->
+                <!-- Category Management -->
+                <div id="categories-view" class="content-view">
+                    <h3>Categories</h3>
+                    <!-- IMPORTANT: The JS needs this form with id="category-form" -->
+                    <form id="category-form" class="admin-form">
+                        <input type="hidden" id="category-id">
+                        <input type="text" id="category-name" placeholder="Category Name" required>
+                        <button type="submit">Save Category</button>
+                    </form>
+                    <div id="category-list-container"></div>
+                </div>
 
-                <!-- UPDATED Product Management -->
+                <!-- Product Management -->
                 <div id="products-view" class="content-view" style="display: none;">
                     <h3>Products</h3>
+                    <!-- IMPORTANT: The JS needs this form with id="product-form" -->
                     <form id="product-form" class="admin-form">
                         <input type="hidden" id="product-id">
                         <input type="text" id="product-name" placeholder="Product Name" required>
@@ -49,13 +69,13 @@
                     <div id="product-list-container"></div>
                 </div>
 
-                <!-- NEW Customer Management View -->
+                <!-- Customer Management View -->
                 <div id="customers-view" class="content-view" style="display: none;">
                     <h3>Customers / Leads</h3>
                     <div id="customer-list-container"></div>
                 </div>
 
-              <!-- Order Management -->
+                <!-- Order Management -->
                 <div id="orders-view" class="content-view" style="display: none;">
                     <h3>Orders</h3>
                     <div id="order-list-container"></div>
@@ -64,6 +84,7 @@
         </section>
     </div>
 
+    <!-- The script tag MUST have type="module" -->
     <script type="module" src="admin.js"></script>
 </body>
 </html>
