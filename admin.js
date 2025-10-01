@@ -16,6 +16,7 @@ import {
     updateDoc
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
+// Main execution block. Halts if Firebase fails to initialize.
 if (!db || !auth) {
     console.error("Halting admin script: Firebase did not initialize correctly (db or auth is missing).");
 } else {
@@ -35,7 +36,6 @@ if (!db || !auth) {
             }
         });
 
-        // FIX IS HERE: Corrected the ID from 'admin--login-btn' to 'admin-login-btn'
         const loginBtn = document.getElementById('admin-login-btn'); 
         loginBtn.addEventListener('click', async () => {
             const email = document.getElementById('admin-email').value;
@@ -76,14 +76,16 @@ if (!db || !auth) {
             });
         });
 
+        // Set the default view to Categories
         document.querySelector('#admin-nav button[data-view="categories-view"]').click();
         
+        // Initialize all management sections
         manageCategories();
         manageProducts();
+        manageCustomers();
         manageOrders();
     }
     
-    // The rest of the file (manageCategories, manageProducts, manageOrders) is unchanged.
     async function manageCategories() {
         const form = document.getElementById('category-form');
         const listContainer = document.getElementById('category-list-container');
@@ -169,17 +171,20 @@ if (!db || !auth) {
     
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const originalPriceValue = form['product-original-price'].value;
             const product = {
                 name: form['product-name'].value.trim(),
                 description: form['product-description'].value.trim(),
                 price: parseFloat(form['product-price'].value),
+                originalPrice: originalPriceValue ? parseFloat(originalPriceValue) : null,
                 imageUrl: form['product-image-url'].value.trim(),
+                paymentLink: form['product-payment-link'].value.trim(),
                 category: form['product-category'].value,
             };
             const id = form['product-id'].value;
     
-            if (!product.name || !product.price || !product.imageUrl || !product.category) {
-                alert("Please fill all required fields.");
+            if (!product.name || !product.price || !product.imageUrl || !product.category || !product.paymentLink) {
+                alert("Please fill all required fields, including Payment Link.");
                 return;
             }
             
@@ -206,7 +211,7 @@ if (!db || !auth) {
                 const item = document.createElement('div');
                 item.className = 'list-item';
                 item.innerHTML = `
-                    <span>${product.name} - $${product.price}</span>
+                    <span>${product.name} - ₹${product.price}</span>
                     <div class="item-actions">
                         <button class="edit-btn" data-id="${doc.id}">Edit</button>
                         <button class="delete-btn" data-id="${doc.id}">Delete</button>
@@ -217,8 +222,10 @@ if (!db || !auth) {
                     form['product-id'].value = product.id;
                     form['product-name'].value = product.name;
                     form['product-description'].value = product.description;
+                    form['product-original-price'].value = product.originalPrice || '';
                     form['product-price'].value = product.price;
                     form['product-image-url'].value = product.imageUrl;
+                    form['product-payment-link'].value = product.paymentLink;
                     form['product-category'].value = product.category;
                     window.scrollTo(0, 0); 
                 });
@@ -239,13 +246,40 @@ if (!db || !auth) {
         await renderProducts();
     }
     
+    // NEW FUNCTION TO MANAGE CUSTOMERS
+    async function manageCustomers() {
+        const listContainer = document.getElementById('customer-list-container');
+        const customerCollection = collection(db, "customers");
+
+        async function renderCustomers() {
+            const querySnapshot = await getDocs(customerCollection);
+            if (querySnapshot.empty) {
+                listContainer.innerHTML = '<p>No customers or leads found.</p>';
+                return;
+            }
+            listContainer.innerHTML = '';
+            querySnapshot.forEach(doc => {
+                const customer = { id: doc.id, ...doc.data() };
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                item.innerHTML = `
+                    <span><strong>Name:</strong> ${customer.name}</span>
+                    <span><strong>Phone:</strong> ${customer.phone}</span>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        await renderCustomers();
+    }
+
     async function manageOrders() {
         const listContainer = document.getElementById('order-list-container');
         
         async function renderOrders() {
             const querySnapshot = await getDocs(collection(db, "orders"));
             if (querySnapshot.empty) {
-                listContainer.innerHTML = '<p>No orders found.</p>';
+                listContainer.innerHTML = '<p>No orders found yet.</p>';
                 return;
             }
             listContainer.innerHTML = '';
@@ -259,7 +293,7 @@ if (!db || !auth) {
                 item.innerHTML = `
                     <p><strong>Order ID:</strong> ${order.id}</p>
                     <p><strong>Customer:</strong> ${order.customerEmail || 'N/A'}</p>
-                    <p><strong>Total:</strong> $${order.total.toFixed(2)}</p>
+                    <p><strong>Total:</strong> ₹${order.total.toFixed(2)}</p>
                     <p><strong>Status:</strong> 
                         <select class="order-status-selector" data-id="${order.id}">
                             <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option>
@@ -269,29 +303,11 @@ if (!db || !auth) {
                     </p>
                     <p><strong>Products:</strong></p>
                     <ul>${productsHtml}</ul>
-                    <p><strong>Payment Link:</strong> ${order.paymentLink || 'Not Generated'}</p>
-                    <button class="generate-link-btn" data-id="${order.id}" data-amount="${order.total}">Generate Payment Link</button>
                 `;
                 listContainer.appendChild(item);
             });
         }
     
-        listContainer.addEventListener('click', async e => {
-            if (e.target.classList.contains('generate-link-btn')) {
-                const orderId = e.target.dataset.id;
-                const amount = e.target.dataset.amount;
-                
-                const razorpayLink = prompt(`Generating link for Order ${orderId} of amount $${amount}. \nEnter mock payment link:`, `https://rzp.io/i/mock${orderId}`);
-                
-                if (razorpayLink) {
-                    await updateDoc(doc(db, "orders", orderId), {
-                        paymentLink: razorpayLink
-                    });
-                    renderOrders();
-                }
-            }
-        });
-        
         listContainer.addEventListener('change', async e => {
             if (e.target.classList.contains('order-status-selector')) {
                 const orderId = e.target.dataset.id;
