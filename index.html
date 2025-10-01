@@ -8,8 +8,22 @@
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#ffffff">
+    <link rel="icon" href="/images/icons/icon-192x192.png">
 </head>
 <body>
+
+    <!-- User Details Popup/Modal -->
+    <div id="user-details-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Welcome!</h3>
+            <p>Please enter your details to continue.</p>
+            <form id="user-details-form">
+                <input type="text" id="user-name-input" placeholder="Enter your name" required>
+                <input type="tel" id="user-phone-input" placeholder="Enter your phone number" required>
+                <button type="submit">Save & Continue</button>
+            </form>
+        </div>
+    </div>
 
     <div id="app-container">
         <!-- View: Home Page -->
@@ -17,7 +31,7 @@
             <header class="app-header">
                 <div class="header-welcome">
                     <p>Welcome back,</p>
-                    <h3>Olivia</h3>
+                    <h3 id="user-greeting-name">Guest</h3>
                 </div>
                 <div class="header-actions">
                     <button class="icon-btn"><i class="fas fa-search"></i></button>
@@ -25,15 +39,14 @@
             </header>
             <main class="app-main">
                 <section class="promo-section">
-                    <!-- Banners would be dynamically loaded here -->
-                    <div class="promo-banner" style="background-image: url('https://i.ibb.co/68qXR0X/promo-banner.png');"></div>
+                    <div class="promo-banner" style="background-image: url('https://i.postimg.cc/d1Fj7dVR/promo-banner.png');"></div>
                 </section>
                 <section class="categories-section">
                     <div class="section-header">
                         <h4>Categories</h4>
-                        <a href="#">See all</a>
+                        <a href="#" class="see-all-btn" data-view="categories-view">See all</a>
                     </div>
-                    <div id="category-list" class="horizontal-scroll">
+                    <div id="category-list-short" class="horizontal-scroll">
                         <!-- Categories loaded by JS -->
                     </div>
                 </section>
@@ -49,64 +62,44 @@
             </main>
         </div>
 
+        <!-- View: All Categories -->
+        <div id="categories-view" class="view">
+             <header class="app-header-condensed">
+                <button class="icon-btn back-to-home"><i class="fas fa-arrow-left"></i></button>
+                <h4>All Categories</h4>
+                <div style="width: 40px;"></div>
+            </header>
+            <main class="app-main" id="all-categories-grid">
+                <!-- All categories listed here -->
+            </main>
+        </div>
+
         <!-- View: Product Details -->
         <div id="details-view" class="view">
             <header class="app-header-condensed">
-                <button class="icon-btn" id="back-to-home-btn"><i class="fas fa-arrow-left"></i></button>
-                <button class="icon-btn"><i class="fas fa-shopping-bag"></i></button>
+                <button class="icon-btn back-to-home"><i class="fas fa-arrow-left"></i></button>
+                <h4 id="product-detail-header">Product Details</h4>
+                 <div style="width: 40px;"></div>
             </header>
             <main class="app-main" id="product-detail-content">
                 <!-- Product details loaded by JS -->
             </main>
             <footer class="action-footer">
                 <button class="icon-btn large-icon"><i class="far fa-heart"></i></button>
-                <button class="btn-primary" id="add-to-cart-details-btn">Add to Cart</button>
-            </footer>
-        </div>
-
-        <!-- View: Shopping Cart -->
-        <div id="cart-view" class="view">
-             <header class="app-header-condensed">
-                <button class="icon-btn" id="back-from-cart-btn"><i class="fas fa-arrow-left"></i></button>
-                <h4>Shopping Cart</h4>
-                <div style="width: 40px;"></div> <!-- Spacer -->
-            </header>
-            <main class="app-main">
-                <div id="cart-items-container">
-                    <!-- Cart items loaded by JS -->
-                </div>
-                <div class="coupon-container">
-                    <i class="fas fa-tag"></i>
-                    <input type="text" placeholder="Add coupon code">
-                </div>
-                <div class="order-summary">
-                    <div class="summary-row">
-                        <span>Total:</span>
-                        <span id="cart-total-price">$0.00 USD</span>
-                    </div>
-                    <p class="summary-subtext">Order and get 34 points. <a href="#">Learn more</a></p>
-                </div>
-            </main>
-            <footer class="action-footer">
-                <button class="btn-primary" id="checkout-btn">Proceed to Checkout</button>
+                <button class="btn-primary" id="buy-now-btn">Buy Now</button>
             </footer>
         </div>
 
     </div>
 
-    <!-- Bottom Navigation Bar -->
+    <!-- UPDATED Bottom Navigation Bar -->
     <nav class="bottom-nav">
         <a href="#" class="nav-item active" data-view="home-view"><i class="fas fa-home"></i></a>
         <a href="#" class="nav-item" data-view="categories-view"><i class="fas fa-list-ul"></i></a>
-        <a href="#" class="nav-item" data-view="chat-view"><i class="fas fa-comment-dots"></i></a>
-        <a href="#" class="nav-item" data-view="cart-view" id="cart-nav-link">
-            <i class="fas fa-shopping-bag"></i>
-            <span class="cart-badge" id="cart-badge-count">0</span>
-        </a>
+        <a href="#" class="nav-item" data-view="orders-view"><i class="fas fa-box"></i><span>My Orders</span></a>
         <a href="#" class="nav-item" data-view="profile-view"><i class="fas fa-user"></i></a>
     </nav>
 
-    <!-- Firebase and App Logic -->
     <script type="module" src="firebase.js"></script>
     <script type="module" src="app.js"></script>
 </body>
