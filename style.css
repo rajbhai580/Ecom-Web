@@ -72,30 +72,37 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--background-co
 .detail-image-carousel { margin-bottom: 1.5rem; }
 
 /* --- My Orders Page --- */
-.customer-order-card { background-color: var(--background-color); padding: 1rem; border-radius: 10px; margin-bottom: 1rem; border: 1px solid var(--border-color); }
+.customer-order-card { background-color: var(--white); padding: 1rem; border-radius: 10px; margin-bottom: 1rem; border: 1px solid var(--border-color); }
+.customer-order-card h4 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+.customer-order-card p { color: var(--text-light); margin-bottom: 0.3rem; }
 .order-status { display: inline-block; padding: 0.3rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.8rem; text-transform: capitalize; }
 .order-status.paid { background-color: var(--discount-bg); color: var(--primary-color); }
+.order-status.pending { background-color: #fffde7; color: #f57f17; }
+.order-status.dispatched { background-color: #e3f2fd; color: #0d47a1; }
+.order-status.delivered { background-color: #e8f5e9; color: #1b5e20; }
+
 
 /* --- Modal/Popup & Avatar Selection --- */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; }
 .modal-content { background: white; padding: 2rem; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; }
 .avatar-chooser { display: flex; justify-content: center; gap: 1.5rem; margin-bottom: 1.5rem; }
-.avatar-option { width: 80px; height: 80px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: border-color 0.2s; }
+.avatar-option { width: 80px; height: 80px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: border-color 0.2s; object-fit: cover; }
 .avatar-option.selected { border-color: var(--primary-color); }
 #user-details-form { display: flex; flex-direction: column; gap: 1rem; }
 #user-details-form input, #user-details-form button { padding: 1rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 1rem; }
 #user-details-form button { background-color: var(--primary-color); color: white; border: none; font-weight: 600; }
 
 /* --- Category Chips --- */
-.horizontal-scroll { display: flex; overflow-x: auto; gap: 0.8rem; padding-bottom: 1rem; }
+.horizontal-scroll { display: flex; overflow-x: auto; gap: 0.8rem; padding-bottom: 1rem; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .horizontal-scroll::-webkit-scrollbar { display: none; }
-.category-chip { background-color: var(--background-color); border-radius: 20px; padding: 0.7rem 1.2rem; font-size: 0.9rem; white-space: nowrap; cursor: pointer; border: 1px solid var(--border-color); transition: background-color 0.2s; }
-.category-chip.active, .category-chip:hover { background-color: var(--text-color); color: var(--white); }
+.category-chip { background-color: var(--white); border-radius: 20px; padding: 0.7rem 1.2rem; font-size: 0.9rem; font-weight: 500; white-space: nowrap; cursor: pointer; border: 1px solid var(--border-color); transition: background-color 0.2s, color 0.2s; }
+.category-chip.active, .category-chip:hover { background-color: var(--text-color); color: var(--white); border-color: var(--text-color); }
 
 /* --- Search Bar --- */
 #search-bar { position: fixed; top: -100px; left: 0; right: 0; max-width: 450px; margin: 0 auto; background-color: var(--white); padding: 1rem; display: flex; gap: 1rem; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1500; transition: top 0.3s ease-in-out; }
 #search-bar.active { top: 0; }
 #search-input { width: 100%; border: none; background-color: var(--background-color); padding: 0.8rem 1rem; border-radius: 20px; font-size: 1rem; }
+#search-input:focus { outline: none; box-shadow: 0 0 0 2px var(--primary-color); }
 #no-products-message { text-align: center; padding: 3rem 1rem; color: var(--text-light); }
 
 /* --- Profile Page --- */
