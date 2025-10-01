@@ -2,10 +2,14 @@ javascript
 import { db } from './firebase.js';
 import { collection, getDocs, query, where, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-let allProducts = []; // This will always hold ALL products from the database
-let currentlyDisplayedProducts = []; // This will hold the products currently shown to the user
+let allProducts = [];
+let currentlyDisplayedProducts = [];
 
-// --- CORE LOGIC ---
+const avatarUrls = {
+    male: 'https://i.ibb.co/68vjVbB/male-avatar.png',
+    female: 'https://i.ibb.co/VMyP10f/female-avatar.png'
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     checkUserDetails();
     loadData();
@@ -13,37 +17,37 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupEventListeners() {
-    // User details form
+    // User details form with avatar
     document.getElementById('user-details-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const name = document.getElementById('user-name-input').value.trim();
         const phone = document.getElementById('user-phone-input').value.trim();
-        if (name && phone) saveUserDetails(name, phone);
+        const selectedAvatar = document.querySelector('.avatar-option.selected').dataset.avatar;
+        if (name && phone) saveUserDetails(name, phone, selectedAvatar);
+    });
+    document.querySelector('.avatar-chooser').addEventListener('click', (e) => {
+        if (e.target.classList.contains('avatar-option')) {
+            document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
+            e.target.classList.add('selected');
+        }
     });
 
-    // Product grid interactions
+    // Main app interactions
     document.getElementById('product-grid').addEventListener('click', handleProductGridClick);
     document.getElementById('buy-now-btn').addEventListener('click', (e) => handleBuyNow(e.target.dataset.id));
-    
-    // Navigation
     document.querySelector('.bottom-nav').addEventListener('click', handleNavigation);
     document.querySelectorAll('.back-to-home').forEach(btn => btn.addEventListener('click', () => {
         switchView('home-view');
-        // When going home, reset filters
-        currentlyDisplayedProducts = [...allProducts];
-        renderProducts(currentlyDisplayedProducts);
-        document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
-        document.querySelector('.category-chip')?.classList.add('active'); // Activate "All"
+        resetFiltersAndSearch();
     }));
     
-    // Event Listeners for new features
+    // Category and Search interactions
     document.getElementById('category-list-short').addEventListener('click', handleCategoryClick);
     document.getElementById('search-icon-btn').addEventListener('click', toggleSearchBar);
     document.getElementById('search-input').addEventListener('input', handleSearch);
     document.getElementById('close-search-btn').addEventListener('click', toggleSearchBar);
 }
 
-// --- USER & PROFILE PAGE ---
 function checkUserDetails() {
     const userName = localStorage.getItem('customerName');
     if (userName) {
@@ -55,23 +59,27 @@ function checkUserDetails() {
 
 function greetUser(name) {
     document.getElementById('user-greeting-name').textContent = name;
+    const avatar = localStorage.getItem('customerAvatar') || 'male';
+    document.getElementById('header-avatar').src = avatarUrls[avatar];
 }
 
-function saveUserDetails(name, phone) {
+function saveUserDetails(name, phone, avatar) {
     localStorage.setItem('customerName', name);
     localStorage.setItem('customerPhone', phone);
+    localStorage.setItem('customerAvatar', avatar);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
-    // Save customer lead to database for admin panel viewing
-    addDoc(collection(db, "customers"), { name, phone, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
+    addDoc(collection(db, "customers"), { name, phone, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
 function showProfilePage() {
     const name = localStorage.getItem('customerName');
     const phone = localStorage.getItem('customerPhone');
+    const avatar = localStorage.getItem('customerAvatar') || 'male';
     if (name && phone) {
         document.getElementById('profile-name').textContent = name;
         document.getElementById('profile-phone').textContent = phone;
+        document.getElementById('profile-photo').src = avatarUrls[avatar];
     }
     document.getElementById('logout-btn').addEventListener('click', () => {
         if (confirm("Are you sure you want to log out?")) {
@@ -81,7 +89,6 @@ function showProfilePage() {
     });
 }
 
-// --- DATA FETCHING ---
 async function loadData() {
     await loadBannersFromDB();
     await loadCategoriesFromDB();
@@ -93,14 +100,9 @@ async function loadBannersFromDB() {
     try {
         const q = query(collection(db, "banners"), orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
-        if (querySnapshot.empty) {
-            container.parentElement.style.display = 'none';
-            return;
-        }
+        if (querySnapshot.empty) { container.parentElement.style.display = 'none'; return; }
         container.innerHTML = '';
-        querySnapshot.forEach(doc => {
-            container.innerHTML += `<div class="carousel-slide"><img src="${doc.data().imageUrl}" alt="Promotional Banner"></div>`;
-        });
+        querySnapshot.forEach(doc => { container.innerHTML += `<div class="carousel-slide"><img src="${doc.data().imageUrl}" alt="Promotional Banner"></div>`; });
         initCarousel();
     } catch (error) { console.error("Error loading banners:", error); }
 }
@@ -110,15 +112,8 @@ async function loadCategoriesFromDB() {
     try {
         const q = query(collection(db, "categories"));
         const querySnapshot = await getDocs(q);
-        if (querySnapshot.empty) {
-            container.parentElement.style.display = 'none';
-            return;
-        }
-        // Add "All" category first
         container.innerHTML = `<div class="category-chip active">All</div>`;
-        querySnapshot.forEach(doc => {
-            container.innerHTML += `<div class="category-chip">${doc.data().name}</div>`;
-        });
+        querySnapshot.forEach(doc => { container.innerHTML += `<div class="category-chip">${doc.data().name}</div>`; });
     } catch (error) { console.error("Error loading categories:", error); }
 }
 
@@ -134,52 +129,30 @@ async function loadProductsFromDB() {
     } catch (error) { console.error("Error loading products:", error); }
 }
 
-// --- "MY ORDERS" PAGE LOGIC ---
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
-    if (!customerPhone) {
-        container.innerHTML = "<p>Your orders will appear here after you make a purchase.</p>";
-        return;
-    }
+    if (!customerPhone) { container.innerHTML = "<p>Your orders will appear here after you make a purchase.</p>"; return; }
     container.innerHTML = "<p>Loading your orders...</p>";
     try {
-        const ordersRef = collection(db, "orders");
-        const q = query(ordersRef, where("customerPhone", "==", customerPhone), orderBy("createdAt", "desc"));
+        const q = query(collection(db, "orders"), where("customerPhone", "==", customerPhone), orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
-        if (querySnapshot.empty) {
-            container.innerHTML = "<p>You haven't placed any orders yet.</p>";
-            return;
-        }
+        if (querySnapshot.empty) { container.innerHTML = "<p>You haven't placed any orders yet.</p>"; return; }
         container.innerHTML = '';
         querySnapshot.forEach(doc => {
             const order = doc.data();
             const orderDate = order.createdAt.toDate().toLocaleDateString();
-            container.innerHTML += `
-                <div class="customer-order-card">
-                    <h4>${order.productName}</h4>
-                    <p>Amount: ₹${order.amount.toFixed(2)}</p>
-                    <p>Date: ${orderDate}</p>
-                    <p>Status: <span class="order-status ${order.status}">${order.status}</span></p>
-                </div>`;
+            container.innerHTML += `<div class="customer-order-card"><h4>${order.productName}</h4><p>Amount: ₹${order.amount.toFixed(2)}</p><p>Date: ${orderDate}</p><p>Status: <span class="order-status ${order.status}">${order.status}</span></p></div>`;
         });
     } catch (error) { console.error("Error loading orders:", error); }
 }
 
-// --- "BUY NOW" WORKFLOW ---
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     const customerPhone = localStorage.getItem('customerPhone');
-    if (!customerName || !customerPhone) {
-        alert("Please provide your details first.");
-        checkUserDetails();
-        return;
-    }
+    if (!customerName || !customerPhone) { alert("Please provide your details first."); checkUserDetails(); return; }
     const product = allProducts.find(p => p.id === productId);
-    if (!product || !product.paymentLink) {
-        alert("Sorry, this product cannot be purchased right now.");
-        return;
-    }
+    if (!product || !product.paymentLink) { alert("Sorry, this product cannot be purchased right now."); return; }
     const paymentUrl = new URL(product.paymentLink);
     paymentUrl.searchParams.set('notes[product_id]', product.id);
     paymentUrl.searchParams.set('notes[product_name]', product.name);
@@ -190,7 +163,6 @@ function handleBuyNow(productId) {
     window.location.href = paymentUrl.toString();
 }
 
-// --- UI, NAVIGATION, & FILTERING ---
 function handleProductGridClick(e) {
     const buyBtn = e.target.closest('.buy-now-grid-btn');
     const card = e.target.closest('.product-card');
@@ -203,11 +175,8 @@ function handleNavigation(e) {
     if (!navItem) return;
     const viewId = navItem.dataset.view;
     switchView(viewId);
-    if (viewId === 'orders-view') {
-        loadCustomerOrders();
-    } else if (viewId === 'profile-view') {
-        showProfilePage();
-    }
+    if (viewId === 'orders-view') { loadCustomerOrders(); } 
+    else if (viewId === 'profile-view') { showProfilePage(); }
 }
 
 function switchView(viewId) {
@@ -237,26 +206,27 @@ function toggleSearchBar() {
     if (!isActive) {
         document.getElementById('search-input').focus();
     } else {
-        document.getElementById('search-input').value = '';
-        currentlyDisplayedProducts = [...allProducts];
-        renderProducts(currentlyDisplayedProducts);
+        resetFiltersAndSearch();
     }
 }
 
 function handleSearch(e) {
     const searchTerm = e.target.value.toLowerCase();
-    if (searchTerm.length > 1) {
-        currentlyDisplayedProducts = allProducts.filter(product => 
-            product.name.toLowerCase().includes(searchTerm) || 
-            product.category.toLowerCase().includes(searchTerm)
-        );
-    } else {
-        currentlyDisplayedProducts = [...allProducts];
-    }
+    currentlyDisplayedProducts = allProducts.filter(product => 
+        product.name.toLowerCase().includes(searchTerm) || 
+        product.category.toLowerCase().includes(searchTerm)
+    );
     renderProducts(currentlyDisplayedProducts);
 }
 
-// --- RENDER FUNCTIONS ---
+function resetFiltersAndSearch() {
+    document.getElementById('search-input').value = '';
+    document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+    document.querySelector('.category-chip')?.classList.add('active'); // Activate "All"
+    currentlyDisplayedProducts = [...allProducts];
+    renderProducts(currentlyDisplayedProducts);
+}
+
 function renderProducts(products) {
     const grid = document.getElementById('product-grid');
     const noProductsEl = document.getElementById('no-products-message');
@@ -290,22 +260,11 @@ function renderProductDetails(productId) {
     const product = allProducts.find(p => p.id === productId);
     const container = document.getElementById('product-detail-content');
     let priceHTML = `<span class="current-price" style="font-size: 1.8rem;">₹${product.price.toFixed(2)}</span>`;
-    if (product.originalPrice && product.originalPrice > product.price) {
-        priceHTML += `<span class="original-price" style="font-size: 1.2rem;">₹${product.originalPrice.toFixed(2)}</span>`;
-    }
+    if (product.originalPrice && product.originalPrice > product.price) { priceHTML += `<span class="original-price" style="font-size: 1.2rem;">₹${product.originalPrice.toFixed(2)}</span>`; }
     let imageCarouselHTML = `<div class="carousel-container detail-image-carousel">`;
-    (product.imageUrls || [product.imageUrl]).forEach(url => {
-        imageCarouselHTML += `<div class="carousel-slide"><img src="${url}" alt="${product.name}" class="product-image-lg"></div>`;
-    });
+    (product.imageUrls || [product.imageUrl]).forEach(url => { imageCarouselHTML += `<div class="carousel-slide"><img src="${url}" alt="${product.name}" class="product-image-lg"></div>`; });
     imageCarouselHTML += `</div>`;
-    container.innerHTML = `
-        ${imageCarouselHTML}
-        <div class="product-info">
-            <h5>${product.category}</h5>
-            <h2>${product.name}</h2>
-            <div class="price-container">${priceHTML}</div>
-            <p class="product-description">${product.description || ''}</p>
-        </div>`;
+    container.innerHTML = `${imageCarouselHTML}<div class="product-info"><h5>${product.category}</h5><h2>${product.name}</h2><div class="price-container">${priceHTML}</div><p class="product-description">${product.description || ''}</p></div>`;
     document.getElementById('buy-now-btn').dataset.id = productId;
 }
 
@@ -315,9 +274,7 @@ function initCarousel() {
     const slides = carousel.querySelectorAll('.carousel-slide');
     if (slides.length <= 1) { dotsContainer.style.display = 'none'; return; }
     dotsContainer.innerHTML = '';
-    slides.forEach((_, index) => {
-        dotsContainer.innerHTML += `<div class="dot ${index === 0 ? 'active' : ''}" data-index="${index}"></div>`;
-    });
+    slides.forEach((_, index) => { dotsContainer.innerHTML += `<div class="dot ${index === 0 ? 'active' : ''}"></div>`; });
     const dots = dotsContainer.querySelectorAll('.dot');
     let currentIndex = 0;
     const totalSlides = slides.length;
@@ -328,7 +285,7 @@ function initCarousel() {
             dots[currentIndex]?.classList.add('active');
         }
     }
-    setInterval(() => {
+    const autoSlide = setInterval(() => {
         currentIndex = (currentIndex + 1) % totalSlides;
         updateCarousel();
     }, 4000);
