@@ -49,10 +49,13 @@ function setupEventListeners() {
 
 function checkUserDetails() {
     const userName = localStorage.getItem('customerName');
+    const userDetailsModal = document.getElementById('user-details-modal');
+    
     if (userName) {
         greetUser(userName);
+        userDetailsModal.classList.add('hidden');
     } else {
-        document.getElementById('user-details-modal').classList.remove('hidden');
+        userDetailsModal.classList.remove('hidden');
     }
 }
 
@@ -146,18 +149,22 @@ async function loadCustomerOrders() {
     } catch (error) { console.error("Error loading orders:", error); }
 }
 
-// This is the only function you need to replace in app.js
-
+// ===================================================================
+// THIS IS THE FINAL, CORRECTED "BUY NOW" FUNCTION
+// ===================================================================
 function handleBuyNow(productId) {
+    const userDetailsModal = document.getElementById('user-details-modal');
+
+    // NEW CHECK: Is the details popup currently visible on the screen?
+    // We check if the 'hidden' class is MISSING from the element.
+    if (!userDetailsModal.classList.contains('hidden')) {
+        alert("Please provide your details first.");
+        return; // Stop the function immediately.
+    }
+    
+    // If the code reaches here, it means the user's details are already saved.
     const customerName = localStorage.getItem('customerName');
     const customerPhone = localStorage.getItem('customerPhone');
-
-    // This check remains the same.
-    if (!customerName || !customerPhone) {
-        alert("Please provide your details first.");
-        checkUserDetails();
-        return;
-    }
 
     const product = allProducts.find(p => p.id === productId);
     if (!product || !product.paymentLink) {
@@ -165,10 +172,7 @@ function handleBuyNow(productId) {
         return;
     }
 
-    // This is the NEW, SIMPLIFIED logic.
-    // We no longer try to add extra information to the URL.
-    // We create the 'pending' order first, then redirect to the simple link.
-    // The webhook will find the order using the customer's phone number.
+    // Create a 'pending' order in the database BEFORE redirecting.
     addDoc(collection(db, "orders"), {
         customerName,
         customerPhone,
@@ -179,13 +183,14 @@ function handleBuyNow(productId) {
         createdAt: new Date()
     }).then(orderRef => {
         console.log("Created PENDING order:", orderRef.id);
-        // Now, we simply redirect to the direct payment link.
+        // Now, redirect to the simple, fixed-amount payment link.
         window.location.href = product.paymentLink;
     }).catch(error => {
         console.error("Error creating pending order:", error);
         alert("Could not initiate purchase. Please try again.");
     });
 }
+// ===================================================================
 
 function handleProductGridClick(e) {
     const buyBtn = e.target.closest('.buy-now-grid-btn');
@@ -284,7 +289,7 @@ function renderProductDetails(productId) {
     const product = allProducts.find(p => p.id === productId);
     const container = document.getElementById('product-detail-content');
     let priceHTML = `<span class="current-price" style="font-size: 1.8rem;">₹${product.price.toFixed(2)}</span>`;
-    if (product.originalPrice && product.originalPrice > product.price) { priceHTML += `<span class="original-price" style="font-size: 1.2rem;">₹${product.originalPrice.toFixed(2)}</span>`; }
+    if (product.originalPrice && product.originalPrice > p.price) { priceHTML += `<span class="original-price" style="font-size: 1.2rem;">₹${product.originalPrice.toFixed(2)}</span>`; }
     let imageCarouselHTML = `<div class="carousel-container detail-image-carousel">`;
     (product.imageUrls || [product.imageUrl]).forEach(url => { imageCarouselHTML += `<div class="carousel-slide"><img src="${url}" alt="${product.name}" class="product-image-lg"></div>`; });
     imageCarouselHTML += `</div>`;
