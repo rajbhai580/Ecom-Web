@@ -1,11 +1,29 @@
-// app.js (Final Corrected Version)
-
 import { db } from './firebase.js';
-import { collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, getDocs, addDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 let allProducts = [];
 
-// --- USER DETAILS & GREETING ---
+// --- CORE LOGIC ---
+document.addEventListener('DOMContentLoaded', () => {
+    checkUserDetails();
+    loadData();
+    setupEventListeners();
+});
+
+function setupEventListeners() {
+    document.getElementById('user-details-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = document.getElementById('user-name-input').value.trim();
+        const phone = document.getElementById('user-phone-input').value.trim();
+        if (name && phone) saveUserDetails(name, phone);
+    });
+    document.getElementById('product-grid').addEventListener('click', handleProductGridClick);
+    document.getElementById('buy-now-btn').addEventListener('click', (e) => handleBuyNow(e.target.dataset.id));
+    document.querySelector('.bottom-nav').addEventListener('click', handleNavigation);
+    document.querySelectorAll('.back-to-home').forEach(btn => btn.addEventListener('click', () => switchView('home-view')));
+}
+
+// --- USER & GREETING ---
 function checkUserDetails() {
     const userName = localStorage.getItem('customerName');
     if (userName) {
@@ -14,41 +32,43 @@ function checkUserDetails() {
         document.getElementById('user-details-modal').classList.remove('hidden');
     }
 }
-
-function greetUser(name) {
-    document.getElementById('user-greeting-name').textContent = name;
+function greetUser(name) { document.getElementById('user-greeting-name').textContent = name; }
+function saveUserDetails(name, phone) {
+    localStorage.setItem('customerName', name);
+    localStorage.setItem('customerPhone', phone);
+    greetUser(name);
+    document.getElementById('user-details-modal').classList.add('hidden');
+    // Save to DB for admin panel viewing
+    addDoc(collection(db, "customers"), { name, phone, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
-async function saveUserDetails(name, phone) {
-    try {
-        // We no longer need to save to Firebase here, just localStorage is fine for this flow.
-        localStorage.setItem('customerName', name);
-        localStorage.setItem('customerPhone', phone);
-        greetUser(name);
-        document.getElementById('user-details-modal').classList.add('hidden');
-    } catch (error) {
-        console.error("Error saving customer details: ", error);
-        alert("Could not save details. Please try again.");
-    }
-}
-
-// --- DATA FETCHING & RENDERING (No changes here) ---
+// --- DATA FETCHING ---
 async function loadData() {
-    await loadCategoriesFromDB();
+    await loadBannersFromDB();
     await loadProductsFromDB();
 }
-async function loadCategoriesFromDB() {
-    const shortListContainer = document.getElementById('category-list-short');
+
+async function loadBannersFromDB() {
+    const container = document.getElementById('promo-carousel');
+    const dotsContainer = document.getElementById('carousel-dots');
     try {
-        const querySnapshot = await getDocs(collection(db, "categories"));
-        shortListContainer.innerHTML = '';
+        const q = query(collection(db, "banners"), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) {
+            container.parentElement.style.display = 'none';
+            return;
+        }
+        container.innerHTML = '';
         querySnapshot.forEach(doc => {
-            shortListContainer.innerHTML += `<div class="category-chip">${doc.data().name}</div>`;
+            container.innerHTML += `<div class="carousel-slide"><img src="${doc.data().imageUrl}" alt="Promotional Banner"></div>`;
         });
-    } catch (error) { console.error("Error loading categories:", error); }
+        initCarousel();
+    } catch (error) { console.error("Error loading banners:", error); }
 }
+
 async function loadProductsFromDB() {
     const grid = document.getElementById('product-grid');
+    grid.innerHTML = "<p>Loading products...</p>";
     try {
         const querySnapshot = await getDocs(collection(db, "products"));
         allProducts = [];
@@ -56,8 +76,94 @@ async function loadProductsFromDB() {
         renderProducts(allProducts);
     } catch (error) { console.error("Error loading products:", error); }
 }
+
+async function loadCustomerOrders() {
+    const container = document.getElementById('customer-orders-list');
+    const customerPhone = localStorage.getItem('customerPhone');
+    if (!customerPhone) {
+        container.innerHTML = "<p>Your orders will appear here after you make a purchase.</p>";
+        return;
+    }
+    container.innerHTML = "<p>Loading your orders...</p>";
+    try {
+        const ordersRef = collection(db, "orders");
+        const q = query(ordersRef, where("customerPhone", "==", customerPhone), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) {
+            container.innerHTML = "<p>You haven't placed any orders yet.</p>";
+            return;
+        }
+        container.innerHTML = '';
+        querySnapshot.forEach(doc => {
+            const order = doc.data();
+            const orderDate = order.createdAt.toDate().toLocaleDateString();
+            container.innerHTML += `
+                <div class="customer-order-card">
+                    <h4>${order.productName}</h4>
+                    <p>Amount: ₹${order.amount.toFixed(2)}</p>
+                    <p>Date: ${orderDate}</p>
+                    <p>Status: <span class="order-status ${order.status}">${order.status}</span></p>
+                </div>`;
+        });
+    } catch (error) { console.error("Error loading orders:", error); }
+}
+
+// --- "BUY NOW" WORKFLOW ---
+async function handleBuyNow(productId) {
+    const customerName = localStorage.getItem('customerName');
+    const customerPhone = localStorage.getItem('customerPhone');
+    if (!customerName || !customerPhone) {
+        alert("Please provide your details first.");
+        checkUserDetails();
+        return;
+    }
+    const product = allProducts.find(p => p.id === productId);
+    if (!product || !product.paymentLink) {
+        alert("Sorry, this product cannot be purchased right now.");
+        return;
+    }
+    try {
+        const orderRef = await addDoc(collection(db, "orders"), {
+            customerName,
+            customerPhone,
+            productName: product.name,
+            productId: product.id,
+            amount: product.price,
+            status: "pending",
+            createdAt: new Date()
+        });
+        console.log("Created PENDING order:", orderRef.id);
+        window.location.href = product.paymentLink;
+    } catch (error) { console.error("Error creating pending order:", error); }
+}
+
+// --- UI & NAVIGATION ---
+function handleProductGridClick(e) {
+    const buyBtn = e.target.closest('.buy-now-grid-btn');
+    const card = e.target.closest('.product-card');
+    if (buyBtn) { handleBuyNow(buyBtn.dataset.id); } 
+    else if (card) { renderProductDetails(card.dataset.id); switchView('details-view'); }
+}
+function handleNavigation(e) {
+    const navItem = e.target.closest('.nav-item');
+    if (!navItem) return;
+    const viewId = navItem.dataset.view;
+    if (viewId === 'orders-view') {
+        loadCustomerOrders();
+    }
+    switchView(viewId);
+}
+function switchView(viewId) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById(viewId)?.classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === viewId));
+}
 function renderProducts(products) {
     const grid = document.getElementById('product-grid');
+    if (!products || products.length === 0) {
+        grid.innerHTML = "<p>No products found. Add products in the admin panel.</p>";
+        return;
+    }
     grid.innerHTML = products.map(p => {
         let priceHTML = `<span class="current-price">₹${p.price.toFixed(2)}</span>`;
         let discountTag = '';
@@ -69,7 +175,9 @@ function renderProducts(products) {
         return `
         <div class="product-card" data-id="${p.id}">
             <button class="wishlist-btn"><i class="far fa-heart"></i></button>
-            <img src="${p.imageUrl}" alt="${p.name}">
+            <div class="product-image-container">
+                <img src="${p.imageUrl}" alt="${p.name}">
+            </div>
             <p class="brand">${p.category}</p>
             <p class="name">${p.name}</p>
             <div class="price-container">${priceHTML}${discountTag}</div>
@@ -84,8 +192,16 @@ function renderProductDetails(productId) {
     if (product.originalPrice && product.originalPrice > product.price) {
         priceHTML += `<span class="original-price" style="font-size: 1.2rem;">₹${product.originalPrice.toFixed(2)}</span>`;
     }
+    
+    // Multiple image carousel for details page
+    let imageCarouselHTML = `<div class="carousel-container detail-image-carousel">`;
+    product.imageUrls.forEach(url => {
+        imageCarouselHTML += `<div class="carousel-slide"><img src="${url}" alt="${product.name}" class="product-image-lg"></div>`;
+    });
+    imageCarouselHTML += `</div>`;
+
     container.innerHTML = `
-        <img src="${product.imageUrl}" alt="${product.name}" class="product-image-lg">
+        ${imageCarouselHTML}
         <div class="product-info">
             <h5>${product.category}</h5>
             <h2>${product.name}</h2>
@@ -94,68 +210,28 @@ function renderProductDetails(productId) {
         </div>`;
     document.getElementById('buy-now-btn').dataset.id = productId;
 }
-
-// --- SIMPLIFIED "BUY NOW" LOGIC ---
-function handleBuyNow(productId) {
-    const customerName = localStorage.getItem('customerName');
-
-    // First, check if the user has entered their details.
-    if (!customerName) {
-        alert("Please provide your details first.");
-        checkUserDetails(); // Re-open the details popup if it's missing.
-        return; // Stop the function here.
+function initCarousel() {
+    const carousel = document.getElementById('promo-carousel');
+    const dotsContainer = document.getElementById('carousel-dots');
+    const slides = carousel.querySelectorAll('.carousel-slide');
+    if (slides.length <= 1) {
+        dotsContainer.style.display = 'none';
+        return;
     }
-    
-    const product = allProducts.find(p => p.id === productId);
-
-    if (product && product.paymentLink) {
-        // This is much simpler now. We just redirect to the link from the database.
-        console.log(`Redirecting to payment link for ${product.name}: ${product.paymentLink}`);
-        window.location.href = product.paymentLink;
-    } else {
-        alert("Sorry, a payment link is not available for this product.");
+    dotsContainer.innerHTML = '';
+    slides.forEach((_, index) => {
+        dotsContainer.innerHTML += `<div class="dot ${index === 0 ? 'active' : ''}" data-index="${index}"></div>`;
+    });
+    const dots = dotsContainer.querySelectorAll('.dot');
+    let currentIndex = 0;
+    const totalSlides = slides.length;
+    function updateCarousel() {
+        carousel.scrollTo({ left: slides[currentIndex].offsetLeft, behavior: 'smooth' });
+        dots.forEach(dot => dot.classList.remove('active'));
+        dots[currentIndex].classList.add('active');
     }
-}
-
-// --- EVENT LISTENERS & VIEW SWITCHING ---
-document.addEventListener('DOMContentLoaded', () => {
-    checkUserDetails();
-    loadData();
-
-    document.getElementById('user-details-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const name = document.getElementById('user-name-input').value;
-        const phone = document.getElementById('user-phone-input').value;
-        saveUserDetails(name, phone);
-    });
-
-    document.getElementById('product-grid').addEventListener('click', (e) => {
-        const buyBtn = e.target.closest('.buy-now-grid-btn');
-        const card = e.target.closest('.product-card');
-        if (buyBtn) { handleBuyNow(buyBtn.dataset.id); } 
-        else if (card) { renderProductDetails(card.dataset.id); switchView('details-view'); }
-    });
-    
-    document.getElementById('buy-now-btn').addEventListener('click', (e) => {
-        handleBuyNow(e.target.dataset.id);
-    });
-    
-    document.querySelector('.bottom-nav').addEventListener('click', (e) => {
-        const navItem = e.target.closest('.nav-item');
-        if (navItem) switchView(navItem.dataset.view);
-    });
-    document.querySelectorAll('.back-to-home').forEach(btn => {
-        btn.addEventListener('click', () => switchView('home-view'));
-    });
-    document.querySelectorAll('.see-all-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => { e.preventDefault(); switchView(btn.dataset.view); });
-    });
-});
-
-function switchView(viewId) {
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    document.getElementById(viewId)?.classList.add('active');
-    document.querySelectorAll('.nav-item').forEach(n => {
-        n.classList.toggle('active', n.dataset.view === viewId);
-    });
+    setInterval(() => {
+        currentIndex = (currentIndex + 1) % totalSlides;
+        updateCarousel();
+    }, 4000);
 }
