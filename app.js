@@ -57,14 +57,24 @@ async function loadBannersFromDB() {
     });
     initCarousel();
 }
+// In app.js
 async function loadCategoriesFromDB() {
     const container = document.getElementById('category-list-short');
-    const q = query(collection(db, "categories"));
-    const querySnapshot = await getDocs(q);
-    container.innerHTML = '';
-    querySnapshot.forEach(doc => {
-        container.innerHTML += `<div class="category-chip">${doc.data().name}</div>`;
-    });
+    try {
+        const q = query(collection(db, "categories"));
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) {
+            container.parentElement.style.display = 'none';
+            return;
+        }
+        container.innerHTML = '';
+        querySnapshot.forEach(doc => {
+            // This now creates a rounded "chip" for each category
+            container.innerHTML += `<div class="category-chip">${doc.data().name}</div>`;
+        });
+    } catch (error) {
+        console.error("Error loading categories:", error);
+    }
 }
 async function loadProductsFromDB() {
     const grid = document.getElementById('product-grid');
