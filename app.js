@@ -4,11 +4,13 @@ import { db } from './firebase.js';
 
 // --- MOCK DATA (Replace with Firebase calls) ---
 const mockCategories = ["Fragrance", "Makeup", "Hair", "Skincare", "Body"];
+// In app.js
+
 const mockProducts = [
-    { id: '1', brand: 'The Ordinary', name: 'Glycolic Acid 7% Toning Solution', price: 14.50, imageUrl: 'https://i.ibb.co/SR0FvjB/product1.png', tag: 'LIMITED EDITION' },
-    { id: '2', brand: 'COSRX', name: 'Propolis Light Cream', price: 32.00, originalPrice: 40.00, rating: 4.8, reviews: 217, imageUrl: 'https://i.ibb.co/3WfKk7z/product2.png' },
-    { id: '3', brand: 'Vichy', name: 'Glycolic Acid 7% To...', price: 14.50, imageUrl: 'https://i.ibb.co/SR0FvjB/product1.png' },
-    { id: '4', brand: 'Green Propolis', name: 'Ampule Mask', price: 50.00, imageUrl: 'https://i.ibb.co/Jq0X7n7/product3.png', description: '50pcs' },
+    { id: '1', brand: 'The Ordinary', name: 'Glycolic Acid 7% Toning Solution', price: 14.50, imageUrl: 'https://i.postimg.cc/tJ0dj2w1/prod1.png', tag: 'LIMITED EDITION' },
+    { id: '2', brand: 'COSRX', name: 'Propolis Light Cream', price: 32.00, originalPrice: 40.00, rating: 4.8, reviews: 217, imageUrl: 'https://i.postimg.cc/rp0n1y5V/prod2.png' },
+    { id: '3', brand: 'Vichy', name: 'Liftactiv Specialist B3', price: 24.50, imageUrl: 'https://i.postimg.cc/zX76295f/prod4.png' },
+    { id: '4', brand: 'Green Propolis', name: 'Ampule Mask (50pcs)', price: 50.00, imageUrl: 'https://i.postimg.cc/sXv7b7V6/prod3.png' },
 ];
 
 let cart = [];
