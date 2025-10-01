@@ -9,7 +9,7 @@
 </head>
 <body>
     <div id="admin-container">
-        <!-- Login Section -->
+        <!-- Login Section (no changes) -->
         <section id="login-section" class="admin-view active">
             <div class="form-container">
                 <h2>Admin Login</h2>
@@ -35,7 +35,7 @@
             </nav>
 
             <main id="admin-main-content">
-                <!-- Category Management -->
+                <!-- Category Management (no changes) -->
                 <div id="categories-view" class="content-view">
                     <h3>Categories</h3>
                     <form id="category-form" class="admin-form">
@@ -46,28 +46,38 @@
                     <div id="category-list-container"></div>
                 </div>
 
-                <!-- Product Management -->
+                <!-- Product Management with NEW image fields -->
                 <div id="products-view" class="content-view" style="display: none;">
                     <h3>Products</h3>
                     <form id="product-form" class="admin-form">
                         <input type="hidden" id="product-id">
-                        <input type="text" id="product-name" placeholder="Product Name" required>
-                        <textarea id="product-description" placeholder="Description"></textarea>
+                        <label for="product-name">Product Name</label>
+                        <input type="text" id="product-name" required>
+                        <label for="product-description">Description</label>
+                        <textarea id="product-description"></textarea>
                         
-                        <input type="number" id="product-original-price" placeholder="Original Price (MRP, e.g., 1200)" step="0.01">
-                        <input type="number" id="product-price" placeholder="Selling Price (e.g., 999)" step="0.01" required>
+                        <label for="product-original-price">Original Price (MRP)</label>
+                        <input type="number" id="product-original-price" placeholder="e.g., 1200" step="0.01">
+                        <label for="product-price">Selling Price</label>
+                        <input type="number" id="product-price" placeholder="e.g., 999" step="0.01" required>
                         
-                        <!-- Changed to textarea for multiple images -->
-                        <textarea id="product-image-url" placeholder="Image URLs (one URL per line)" required rows="4"></textarea>
-                        <input type="text" id="product-payment-link" placeholder="Razorpay Payment Link" required>
+                        <label for="product-banner-url">Main Product Image (for grid view)</label>
+                        <input type="text" id="product-banner-url" placeholder="Paste single image URL here" required>
                         
+                        <label for="product-detail-urls">Additional Product Images (for details page)</label>
+                        <textarea id="product-detail-urls" placeholder="Paste more image URLs, one per line" rows="4"></textarea>
+
+                        <label for="product-payment-link">Razorpay Payment Link</label>
+                        <input type="text" id="product-payment-link" required>
+                        
+                        <label for="product-category">Category</label>
                         <select id="product-category" required></select>
                         <button type="submit">Save Product</button>
                     </form>
                     <div id="product-list-container"></div>
                 </div>
 
-                <!-- Banner Management View -->
+                <!-- Banner Management (no changes) -->
                 <div id="banners-view" class="content-view" style="display: none;">
                     <h3>Manage Banners</h3>
                     <form id="banner-form" class="admin-form">
@@ -77,13 +87,13 @@
                     <div id="banner-list-container"></div>
                 </div>
 
-                <!-- Customer Management View -->
+                <!-- Customer Management (no changes) -->
                 <div id="customers-view" class="content-view" style="display: none;">
                     <h3>Customers / Leads</h3>
                     <div id="customer-list-container"></div>
                 </div>
 
-                <!-- Order Management -->
+                <!-- Order Management (no changes) -->
                 <div id="orders-view" class="content-view" style="display: none;">
                     <h3>Orders</h3>
                     <div id="order-list-container"></div>
