@@ -74,6 +74,4 @@ export default async function handler(req, res) {
 
   // 5. Acknowledge receipt
   res.status(200).json({ status: 'ok' });
-}```
-
-After you replace these two files and redeploy, the "fake order" problem will be permanently solved. I am confident this is the correct and final logic. I am deeply sorry for the long and frustrating process this has been.
+}
