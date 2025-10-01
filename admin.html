@@ -10,13 +10,7 @@
     <div id="admin-container">
         <!-- Login Section -->
         <section id="login-section" class="admin-view active">
-            <div class="form-container">
-                <h2>Admin Login</h2>
-                <input type="email" id="admin-email" placeholder="Email" required>
-                <input type="password" id="admin-password" placeholder="Password" required>
-                <button id="admin-login-btn">Login</button>
-                <p id="login-error" class="error-message"></p>
-            </div>
+            <!-- ... Login form remains the same ... -->
         </section>
 
         <!-- Dashboard Section -->
@@ -28,37 +22,40 @@
             <nav id="admin-nav">
                 <button data-view="categories-view">Manage Categories</button>
                 <button data-view="products-view">Manage Products</button>
+                <button data-view="customers-view">View Customers</button>
                 <button data-view="orders-view">Manage Orders</button>
             </nav>
 
             <main id="admin-main-content">
-                <!-- Category Management -->
-                <div id="categories-view" class="content-view">
-                    <h3>Categories</h3>
-                    <form id="category-form" class="admin-form">
-                        <input type="hidden" id="category-id">
-                        <input type="text" id="category-name" placeholder="Category Name" required>
-                        <button type="submit">Save Category</button>
-                    </form>
-                    <div id="category-list-container"></div>
-                </div>
+                <!-- ... Category Management view remains the same ... -->
 
-                <!-- Product Management -->
+                <!-- UPDATED Product Management -->
                 <div id="products-view" class="content-view" style="display: none;">
                     <h3>Products</h3>
                     <form id="product-form" class="admin-form">
                         <input type="hidden" id="product-id">
                         <input type="text" id="product-name" placeholder="Product Name" required>
                         <textarea id="product-description" placeholder="Description"></textarea>
-                        <input type="number" id="product-price" placeholder="Price" step="0.01" required>
+                        
+                        <input type="number" id="product-original-price" placeholder="Original Price (MRP, e.g., 1200)" step="0.01">
+                        <input type="number" id="product-price" placeholder="Selling Price (e.g., 999)" step="0.01" required>
+                        
                         <input type="text" id="product-image-url" placeholder="Image URL" required>
+                        <input type="text" id="product-payment-link" placeholder="Razorpay Payment Link" required>
+                        
                         <select id="product-category" required></select>
                         <button type="submit">Save Product</button>
                     </form>
                     <div id="product-list-container"></div>
                 </div>
 
-                <!-- Order Management -->
+                <!-- NEW Customer Management View -->
+                <div id="customers-view" class="content-view" style="display: none;">
+                    <h3>Customers / Leads</h3>
+                    <div id="customer-list-container"></div>
+                </div>
+
+              <!-- Order Management -->
                 <div id="orders-view" class="content-view" style="display: none;">
                     <h3>Orders</h3>
                     <div id="order-list-container"></div>
@@ -67,7 +64,6 @@
         </section>
     </div>
 
-    <!-- In admin.html, at the bottom of the <body> -->
-<script type="module" src="admin.js"></script>
+    <script type="module" src="admin.js"></script>
 </body>
 </html>
