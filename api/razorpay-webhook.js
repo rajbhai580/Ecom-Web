@@ -4,87 +4,72 @@ import crypto from 'crypto';
 // --- Initialization ---
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
+  admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 }
 const db = admin.firestore();
 const RAZORPAY_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 
 export default async function handler(req, res) {
-  console.log("Webhook received. Starting process...");
+  console.log("Webhook received...");
 
-  // 1. Verify the signature from Razorpay
+  // 1. Verify the signature
   const signature = req.headers['x-razorpay-signature'];
   const body = req.body;
-
   try {
-    // **THE FIX IS HERE: Changed 'sha266' to the correct 'sha256'**
     const shasum = crypto.createHmac('sha256', RAZORPAY_SECRET);
     shasum.update(JSON.stringify(body));
     const digest = shasum.digest('hex');
-
     if (digest !== signature) {
-      console.error('Signature mismatch! The secret in Vercel might not match the secret in Razorpay.');
+      console.error('Signature mismatch!');
       return res.status(403).json({ error: 'Invalid signature' });
     }
-    console.log("Signature verified successfully.");
-
+    console.log("Signature verified.");
   } catch (error) {
-    console.error('Error during signature validation:', error);
-    return res.status(500).json({ error: 'Internal Server Error during validation' });
+    console.error('Signature validation error:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 
-  // 2. Process the event if the signature is valid
+  // 2. Process the event
   const event = body;
   if (event.event === 'payment.captured') {
     const paymentInfo = event.payload.payment.entity;
     
-    // Get customer phone and amount from the payment
-    const customerPhone = paymentInfo.contact ? paymentInfo.contact.replace('+91', '') : '';
+    // 3. Get all the details we sent from the app
+    const notes = paymentInfo.notes;
+    const productName = notes.product_name;
+    const productId = notes.product_id;
+    const customerName = notes.customer_name;
+    const customerPhone = notes.customer_phone;
     const amountPaid = paymentInfo.amount / 100;
 
-    console.log(`Payment captured. Searching for pending order for phone: ${customerPhone} and amount: ${amountPaid}`);
-
-    if (!customerPhone) {
-        console.warn("Webhook received for payment with no contact number. Cannot find order.");
-        return res.status(200).json({ status: 'ignored_no_contact' });
+    if (!productId || !customerPhone) {
+        console.warn("Webhook received without product_id or customer_phone in notes. Ignoring.");
+        return res.status(200).json({ status: 'ignored_missing_notes' });
     }
 
     try {
-      // 3. Find the LATEST PENDING order that matches the phone and amount
-      const ordersRef = db.collection('orders');
-      const q = ordersRef
-          .where('customerPhone', '==', customerPhone)
-          .where('amount', '==', amountPaid)
-          .where('status', '==', 'pending')
-          .orderBy('createdAt', 'desc')
-          .limit(1);
-
-      const querySnapshot = await q.get();
-
-      if (querySnapshot.empty) {
-        console.warn(`Webhook search complete. No matching PENDING order was found.`);
-        return res.status(200).json({ status: 'no_matching_pending_order' });
-      }
-
-      // 4. Update the order to "paid"
-      const orderDoc = querySnapshot.docs[0];
-      await orderDoc.ref.update({
-          status: 'paid',
+      // 4. CREATE the order directly in the database with status "paid"
+      const orderData = {
+          customerName,
+          customerPhone,
+          productName,
+          productId,
+          amount: amountPaid,
+          status: 'paid', // Set status directly to 'paid'
+          createdAt: new Date(),
           paymentId: paymentInfo.id,
           paymentDetails: paymentInfo,
-      });
+      };
+
+      await db.collection('orders').add(orderData);
       
-      console.log(`SUCCESS! Updated order ${orderDoc.id} from 'pending' to 'paid'.`);
+      console.log(`SUCCESS: Created new PAID order for ${productName}.`);
 
     } catch (error) {
-      console.error(`Database Error: Could not update order for phone ${customerPhone}.`, error);
+      console.error(`Database Error: Could not create order for ${productName}.`, error);
     }
-  } else {
-      console.log(`Webhook received for event '${event.event}', which is not 'payment.captured'. Ignoring.`);
   }
 
-  // 5. Acknowledge receipt of the webhook
+  // 5. Acknowledge receipt
   res.status(200).json({ status: 'ok' });
 }
