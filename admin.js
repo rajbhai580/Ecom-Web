@@ -2,6 +2,11 @@ import { db, auth } from './firebase.js';
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { collection, addDoc, getDocs, doc, setDoc, deleteDoc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
+// ===================================================================
+//  IMPORTANT: PASTE YOUR IMGBB API KEY HERE
+// ===================================================================
+const IMGBB_API_KEY = "13aaae548cbbec9e7a5f0a4a6d8eed02"; // <-- REPLACE THIS WITH YOUR REAL KEY
+
 if (!db || !auth) {
     console.error("Halting admin script: Firebase did not initialize correctly.");
 } else {
@@ -57,8 +62,13 @@ if (!db || !auth) {
         manageOrders();
     }
 
-    // --- UPLOAD IMAGE LOGIC ---
-    async function uploadImage(file, dropZoneEl) {
+    // --- DIRECT UPLOAD IMAGE LOGIC (CLIENT-SIDE) ---
+    async function uploadImageDirectly(file, dropZoneEl) {
+        if (!IMGBB_API_KEY || IMGBB_API_KEY === "YOUR_IMGBB_API_KEY") {
+            alert("CRITICAL ERROR: ImgBB API Key is not set in admin.js. Please contact the developer.");
+            return null;
+        }
+
         const feedbackEl = document.createElement('div');
         feedbackEl.className = 'upload-feedback';
         feedbackEl.textContent = 'Uploading...';
@@ -68,32 +78,32 @@ if (!db || !auth) {
         formData.append('image', file);
 
         try {
-            const response = await fetch('/api/upload-image', {
+            const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
                 method: 'POST',
                 body: formData,
             });
-
             const result = await response.json();
-            
             if (!response.ok || !result.success) {
-                throw new Error(result.error || 'Upload failed');
+                throw new Error(result.error?.message || 'Upload to ImgBB failed');
             }
-            
             feedbackEl.textContent = 'Success!';
             setTimeout(() => feedbackEl.remove(), 1500);
-            return result.url; // Return the URL on success
-
+            return result.data.url;
         } catch (error) {
-            console.error('Upload error:', error);
-            feedbackEl.textContent = 'Upload Failed!';
+            console.error('Direct Upload error:', error);
+            feedbackEl.textContent = `Upload Failed: ${error.message}`;
             feedbackEl.style.color = 'red';
-            setTimeout(() => feedbackEl.remove(), 3000);
-            return null; // Return null on failure
+            setTimeout(() => feedbackEl.remove(), 4000);
+            return null;
         }
     }
 
     function setupDropZone(dropZoneId, isMultiple, onUpload) {
         const dropZoneEl = document.getElementById(dropZoneId);
+        if (!dropZoneEl) {
+            console.error(`Drop zone with ID "${dropZoneId}" not found.`);
+            return;
+        }
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = 'image/*';
@@ -102,29 +112,20 @@ if (!db || !auth) {
         dropZoneEl.appendChild(fileInput);
 
         dropZoneEl.addEventListener('click', () => fileInput.click());
-        dropZoneEl.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZoneEl.classList.add('drag-over');
-        });
+        dropZoneEl.addEventListener('dragover', (e) => { e.preventDefault(); dropZoneEl.classList.add('drag-over'); });
         dropZoneEl.addEventListener('dragleave', () => dropZoneEl.classList.remove('drag-over'));
         dropZoneEl.addEventListener('drop', (e) => {
             e.preventDefault();
             dropZoneEl.classList.remove('drag-over');
-            const files = e.dataTransfer.files;
-            if (files.length) {
-                handleFiles(files);
-            }
+            if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
         });
         fileInput.addEventListener('change', (e) => {
-            const files = e.target.files;
-            if (files.length) {
-                handleFiles(files);
-            }
+            if (e.target.files.length) handleFiles(e.target.files);
         });
 
         async function handleFiles(files) {
             for (const file of files) {
-                const url = await uploadImage(file, dropZoneEl);
+                const url = await uploadImageDirectly(file, dropZoneEl);
                 if (url) {
                     onUpload(url);
                 }
@@ -197,7 +198,6 @@ if (!db || !auth) {
         const detailPreview = document.querySelector('#detail-drop-zone .image-preview-multiple');
         const bannerDropZone = document.getElementById('banner-drop-zone');
         
-        // --- Setup Drop Zones ---
         setupDropZone('banner-drop-zone', false, (url) => {
             bannerUrlInput.value = url;
             bannerPreview.innerHTML = `<img src="${url}" alt="Banner preview">`;
@@ -205,7 +205,7 @@ if (!db || !auth) {
         });
 
         setupDropZone('detail-drop-zone', true, (url) => {
-            const currentUrls = detailUrlsTextarea.value ? detailUrlsTextarea.value.split('\n') : [];
+            const currentUrls = detailUrlsTextarea.value ? detailUrlsTextarea.value.split('\n').filter(u => u) : [];
             currentUrls.push(url);
             detailUrlsTextarea.value = currentUrls.join('\n');
             renderDetailPreviews();
@@ -213,9 +213,8 @@ if (!db || !auth) {
 
         function renderDetailPreviews() {
             detailPreview.innerHTML = '';
-            const urls = detailUrlsTextarea.value ? detailUrlsTextarea.value.split('\n') : [];
+            const urls = detailUrlsTextarea.value ? detailUrlsTextarea.value.split('\n').filter(u => u) : [];
             urls.forEach((url, index) => {
-                if (!url) return;
                 const imgContainer = document.createElement('div');
                 imgContainer.className = 'img-container';
                 imgContainer.innerHTML = `<img src="${url}" alt="Detail preview ${index + 1}"><button type="button" class="remove-img-btn" data-index="${index}">&times;</button>`;
@@ -245,8 +244,10 @@ if (!db || !auth) {
 
         async function populateCategoryDropdown() {
             const catSnapshot = await getDocs(collection(db, "categories"));
+            const currentValue = categorySelect.value;
             categorySelect.innerHTML = '<option value="">Select Category</option>';
             catSnapshot.forEach(doc => categorySelect.innerHTML += `<option value="${doc.data().name}">${doc.data().name}</option>`);
+            categorySelect.value = currentValue;
         }
 
         form.addEventListener('submit', async (e) => {
@@ -300,7 +301,7 @@ if (!db || !auth) {
                 listContainer.appendChild(item);
 
                 item.querySelector('.edit-btn').addEventListener('click', () => {
-                    resetProductForm(); // Clear the form first
+                    resetProductForm();
                     form['product-id'].value = product.id;
                     form['product-name'].value = product.name;
                     form['product-description'].value = product.description;
@@ -335,19 +336,30 @@ if (!db || !auth) {
     async function manageBanners() {
         const form = document.getElementById('banner-form');
         const listContainer = document.getElementById('banner-list-container');
-        const bannerCollection = collection(db, "banners");
+        const bannerUrlInput = document.getElementById('banner-image-url');
+        const bannerPreview = document.querySelector('#banner-upload-drop-zone .image-preview');
+
+        setupDropZone('banner-upload-drop-zone', false, (url) => {
+            bannerUrlInput.value = url;
+            bannerPreview.innerHTML = `<img src="${url}" style="max-height: 100px;">`;
+        });
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const imageUrl = form['banner-image-url'].value.trim();
-            if (!imageUrl) return;
-            await addDoc(bannerCollection, { imageUrl, createdAt: new Date() });
+            const imageUrl = bannerUrlInput.value.trim();
+            if (!imageUrl) {
+                alert("Please upload a banner image first.");
+                return;
+            }
+            await addDoc(collection(db, "banners"), { imageUrl, createdAt: new Date() });
             form.reset();
+            bannerUrlInput.value = '';
+            bannerPreview.innerHTML = '';
             await renderBanners();
         });
 
         async function renderBanners() {
-            const q = query(bannerCollection, orderBy("createdAt", "desc"));
+            const q = query(collection(db, "banners"), orderBy("createdAt", "desc"));
             const querySnapshot = await getDocs(q);
             listContainer.innerHTML = '';
             querySnapshot.forEach((doc) => {
