@@ -146,20 +146,45 @@ async function loadCustomerOrders() {
     } catch (error) { console.error("Error loading orders:", error); }
 }
 
+// This is the only function you need to replace in app.js
+
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     const customerPhone = localStorage.getItem('customerPhone');
-    if (!customerName || !customerPhone) { alert("Please provide your details first."); checkUserDetails(); return; }
+
+    // This check remains the same.
+    if (!customerName || !customerPhone) {
+        alert("Please provide your details first.");
+        checkUserDetails();
+        return;
+    }
+
     const product = allProducts.find(p => p.id === productId);
-    if (!product || !product.paymentLink) { alert("Sorry, this product cannot be purchased right now."); return; }
-    const paymentUrl = new URL(product.paymentLink);
-    paymentUrl.searchParams.set('notes[product_id]', product.id);
-    paymentUrl.searchParams.set('notes[product_name]', product.name);
-    paymentUrl.searchParams.set('notes[customer_name]', customerName);
-    paymentUrl.searchParams.set('notes[customer_phone]', customerPhone);
-    paymentUrl.searchParams.set('prefill[name]', customerName);
-    paymentUrl.searchParams.set('prefill[contact]', customerPhone);
-    window.location.href = paymentUrl.toString();
+    if (!product || !product.paymentLink) {
+        alert("Sorry, this product cannot be purchased right now.");
+        return;
+    }
+
+    // This is the NEW, SIMPLIFIED logic.
+    // We no longer try to add extra information to the URL.
+    // We create the 'pending' order first, then redirect to the simple link.
+    // The webhook will find the order using the customer's phone number.
+    addDoc(collection(db, "orders"), {
+        customerName,
+        customerPhone,
+        productName: product.name,
+        productId: product.id,
+        amount: product.price,
+        status: "pending",
+        createdAt: new Date()
+    }).then(orderRef => {
+        console.log("Created PENDING order:", orderRef.id);
+        // Now, we simply redirect to the direct payment link.
+        window.location.href = product.paymentLink;
+    }).catch(error => {
+        console.error("Error creating pending order:", error);
+        alert("Could not initiate purchase. Please try again.");
+    });
 }
 
 function handleProductGridClick(e) {
