@@ -1,310 +1,316 @@
+// admin.js
+
 import { db, auth } from './firebase.js';
 
-import {
-    signInWithEmailAndPassword,
-    onAuthStateChanged,
-    signOut
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+// If firebase.js failed, db or auth might not be available. Stop execution.
+if (!db || !auth) {
+    console.error("Firestore DB or Auth is not available. Halting admin script.");
+    // You could also show an error message on the admin page itself.
+} else {
+    // All code now runs inside this 'else' block
+    console.log("Admin script started. DB and Auth objects are available.");
 
-import {
-    collection,
-    addDoc,
-    getDocs,
-    doc,
-    setDoc,
-    deleteDoc,
-    updateDoc
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+    import {
+        signInWithEmailAndPassword,
+        onAuthStateChanged,
+        signOut
+    } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 
-document.addEventListener('DOMContentLoaded', () => {
-    // This part remains the same
-    const loginSection = document.getElementById('login-section');
-    const dashboardSection = document.getElementById('dashboard-section');
+    import {
+        collection,
+        addDoc,
+        getDocs,
+        doc,
+        setDoc,
+        deleteDoc,
+        updateDoc
+    } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-    onAuthStateChanged(auth, user => {
-        if (user) {
-            loginSection.classList.remove('active');
-            dashboardSection.classList.add('active');
-            initDashboard();
-        } else {
-            dashboardSection.classList.remove('active');
-            loginSection.classList.add('active');
-        }
-    });
+    document.addEventListener('DOMContentLoaded', () => {
+        const loginSection = document.getElementById('login-section');
+        const dashboardSection = document.getElementById('dashboard-section');
 
-    const loginBtn = document.getElementById('admin-login-btn');
-    loginBtn.addEventListener('click', async () => {
-        const email = document.getElementById('admin-email').value;
-        const password = document.getElementById('admin-password').value;
-        const errorP = document.getElementById('login-error');
-        errorP.textContent = ''; 
-
-        try {
-            await signInWithEmailAndPassword(auth, email, password);
-        } catch (error) {
-            console.error("Login failed:", error.message);
-            if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-                errorP.textContent = "Invalid email or password.";
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                loginSection.classList.remove('active');
+                dashboardSection.classList.add('active');
+                initDashboard();
             } else {
-                errorP.textContent = "An error occurred during login.";
+                dashboardSection.classList.remove('active');
+                loginSection.classList.add('active');
             }
-        }
-    });
-
-    const logoutBtn = document.getElementById('admin-logout-btn');
-    logoutBtn.addEventListener('click', () => {
-        signOut(auth);
-    });
-});
-
-function initDashboard() {
-    // This part remains the same
-    const navButtons = document.querySelectorAll('#admin-nav button');
-    const contentViews = document.querySelectorAll('.content-view');
-
-    navButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const targetViewId = button.dataset.view;
-            contentViews.forEach(view => {
-                view.style.display = view.id === targetViewId ? 'block' : 'none';
-            });
-            navButtons.forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
         });
-    });
 
-    document.querySelector('#admin-nav button[data-view="categories-view"]').click();
-    
-    manageCategories();
-    manageProducts();
-    manageOrders();
-}
+        const loginBtn = document.getElementById('admin-login-btn');
+        loginBtn.addEventListener('click', async () => {
+            const email = document.getElementById('admin-email').value;
+            const password = document.getElementById('admin-password').value;
+            const errorP = document.getElementById('login-error');
+            errorP.textContent = '';
 
-// --- CATEGORY MANAGEMENT ---
-// This function was already correct, no changes needed here.
-async function manageCategories() {
-    const form = document.getElementById('category-form');
-    const listContainer = document.getElementById('category-list-container');
-    const idField = document.getElementById('category-id');
-    const nameField = document.getElementById('category-name');
-    const catCollection = collection(db, "categories");
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const id = idField.value;
-        const name = nameField.value.trim();
-        if (!name) return;
-
-        try {
-            if (id) {
-                await setDoc(doc(db, "categories", id), { name });
-            } else {
-                await addDoc(catCollection, { name });
-            }
-            form.reset();
-            idField.value = '';
-            await renderCategories();
-        } catch (error) {
-            console.error("Error saving category:", error);
-        }
-    });
-
-    async function renderCategories() {
-        const querySnapshot = await getDocs(catCollection);
-        listContainer.innerHTML = '';
-        querySnapshot.forEach((doc) => {
-            const category = { id: doc.id, ...doc.data() };
-            const item = document.createElement('div');
-            item.className = 'list-item';
-            item.innerHTML = `
-                <span>${category.name}</span>
-                <div class="item-actions">
-                    <button class="edit-btn" data-id="${category.id}" data-name="${category.name}">Edit</button>
-                    <button class="delete-btn" data-id="${category.id}">Delete</button>
-                </div>
-            `;
-            listContainer.appendChild(item);
-        });
-    }
-
-    listContainer.addEventListener('click', async (e) => {
-        const target = e.target;
-        if (target.classList.contains('edit-btn')) {
-            idField.value = target.dataset.id;
-            nameField.value = target.dataset.name;
-        }
-        if (target.classList.contains('delete-btn')) {
-            const id = target.dataset.id;
-            if (confirm('Are you sure you want to delete this category?')) {
-                try {
-                    await deleteDoc(doc(db, "categories", id));
-                    await renderCategories();
-                } catch (error) {
-                    console.error("Error deleting category:", error);
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                console.error("Login failed:", error.message);
+                 if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+                    errorP.textContent = "Invalid email or password.";
+                } else {
+                    errorP.textContent = "An error occurred during login.";
                 }
             }
-        }
+        });
+
+        const logoutBtn = document.getElementById('admin-logout-btn');
+        logoutBtn.addEventListener('click', () => {
+            signOut(auth);
+        });
     });
 
-    await renderCategories();
-}
+    function initDashboard() {
+        const navButtons = document.querySelectorAll('#admin-nav button');
+        const contentViews = document.querySelectorAll('.content-view');
 
-// --- PRODUCT MANAGEMENT ---
-async function manageProducts() {
-    const form = document.getElementById('product-form');
-    const listContainer = document.getElementById('product-list-container');
-    const categorySelect = document.getElementById('product-category');
-    const prodCollection = collection(db, "products");
-
-    async function populateCategoryDropdown() {
-        // FIX #1: Added the 'db' object to the collection() call.
-        const catSnapshot = await getDocs(collection(db, "categories"));
-        const currentValue = categorySelect.value; // Save current selection
-        categorySelect.innerHTML = '<option value="">Select Category</option>';
-        catSnapshot.forEach(doc => {
-            categorySelect.innerHTML += `<option value="${doc.data().name}">${doc.data().name}</option>`;
+        navButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const targetViewId = button.dataset.view;
+                contentViews.forEach(view => {
+                    view.style.display = view.id === targetViewId ? 'block' : 'none';
+                });
+                navButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+            });
         });
-        categorySelect.value = currentValue; // Restore selection
+
+        document.querySelector('#admin-nav button[data-view="categories-view"]').click();
+        
+        manageCategories();
+        manageProducts();
+        manageOrders();
     }
 
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const product = {
-            name: form['product-name'].value.trim(),
-            description: form['product-description'].value.trim(),
-            price: parseFloat(form['product-price'].value),
-            imageUrl: form['product-image-url'].value.trim(),
-            category: form['product-category'].value,
-        };
-        const id = form['product-id'].value;
-
-        if (!product.name || !product.price || !product.imageUrl || !product.category) {
-            alert("Please fill all required fields.");
-            return;
-        }
-        
-        try {
-            if (id) {
-                await setDoc(doc(db, "products", id), product);
-            } else {
-                await addDoc(prodCollection, product);
-            }
-            form.reset();
-            form['product-id'].value = '';
-            await renderProducts();
-        } catch(error) {
-            console.error("Error saving product:", error);
-        }
-    });
+    // --- All manage functions (Categories, Products, Orders) ---
+    // These functions now use the guaranteed-to-be-initialized 'db' object.
+    // The code for these functions is the same as the previous correct version.
     
-    async function renderProducts() {
-        await populateCategoryDropdown(); 
-        const querySnapshot = await getDocs(prodCollection);
-        listContainer.innerHTML = '';
-        querySnapshot.forEach((doc) => {
-            const product = { id: doc.id, ...doc.data() };
-            const item = document.createElement('div');
-            item.className = 'list-item';
-            item.innerHTML = `
-                <span>${product.name} - $${product.price}</span>
-                <div class="item-actions">
-                    <button class="edit-btn" data-id="${doc.id}">Edit</button>
-                    <button class="delete-btn" data-id="${doc.id}">Delete</button>
-                </div>`;
-            listContainer.appendChild(item);
-
-            item.querySelector('.edit-btn').addEventListener('click', () => {
-                form['product-id'].value = product.id;
-                form['product-name'].value = product.name;
-                form['product-description'].value = product.description;
-                form['product-price'].value = product.price;
-                form['product-image-url'].value = product.imageUrl;
-                form['product-category'].value = product.category;
-                window.scrollTo(0, 0); 
+    async function manageCategories() {
+        const form = document.getElementById('category-form');
+        const listContainer = document.getElementById('category-list-container');
+        const idField = document.getElementById('category-id');
+        const nameField = document.getElementById('category-name');
+        const catCollection = collection(db, "categories");
+    
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = idField.value;
+            const name = nameField.value.trim();
+            if (!name) return;
+    
+            try {
+                if (id) {
+                    await setDoc(doc(db, "categories", id), { name });
+                } else {
+                    await addDoc(catCollection, { name });
+                }
+                form.reset();
+                idField.value = '';
+                await renderCategories();
+            } catch (error) {
+                console.error("Error saving category:", error);
+            }
+        });
+    
+        async function renderCategories() {
+            const querySnapshot = await getDocs(catCollection);
+            listContainer.innerHTML = '';
+            querySnapshot.forEach((doc) => {
+                const category = { id: doc.id, ...doc.data() };
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                item.innerHTML = `
+                    <span>${category.name}</span>
+                    <div class="item-actions">
+                        <button class="edit-btn" data-id="${category.id}" data-name="${category.name}">Edit</button>
+                        <button class="delete-btn" data-id="${category.id}">Delete</button>
+                    </div>
+                `;
+                listContainer.appendChild(item);
             });
-
-            item.querySelector('.delete-btn').addEventListener('click', async () => {
-                if (confirm('Are you sure you want to delete this product?')) {
+        }
+    
+        listContainer.addEventListener('click', async (e) => {
+            const target = e.target;
+            if (target.classList.contains('edit-btn')) {
+                idField.value = target.dataset.id;
+                nameField.value = target.dataset.name;
+            }
+            if (target.classList.contains('delete-btn')) {
+                const id = target.dataset.id;
+                if (confirm('Are you sure you want to delete this category?')) {
                     try {
-                        await deleteDoc(doc(db, "products", product.id));
-                        await renderProducts();
+                        await deleteDoc(doc(db, "categories", id));
+                        await renderCategories();
                     } catch (error) {
-                        console.error("Error deleting product: ", error);
+                        console.error("Error deleting category:", error);
                     }
                 }
-            });
-        });
-    }
-    
-    await renderProducts();
-}
-
-
-// --- ORDER MANAGEMENT ---
-async function manageOrders() {
-    const listContainer = document.getElementById('order-list-container');
-    
-    async function renderOrders() {
-        // FIX #2: Added the 'db' object to the collection() call.
-        const querySnapshot = await getDocs(collection(db, "orders"));
-        if (querySnapshot.empty) {
-            listContainer.innerHTML = '<p>No orders found.</p>';
-            return;
-        }
-        listContainer.innerHTML = '';
-        querySnapshot.forEach(doc => {
-            const order = { id: doc.id, ...doc.data() };
-            const item = document.createElement('div');
-            item.className = 'order-item';
-            
-            let productsHtml = order.products.map(p => `<li>${p.name} (Qty: ${p.quantity})</li>`).join('');
-
-            item.innerHTML = `
-                <p><strong>Order ID:</strong> ${order.id}</p>
-                <p><strong>Customer:</strong> ${order.customerEmail || 'N/A'}</p>
-                <p><strong>Total:</strong> $${order.total.toFixed(2)}</p>
-                <p><strong>Status:</strong> 
-                    <select class="order-status-selector" data-id="${order.id}">
-                        <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option>
-                        <option value="Paid" ${order.status === 'Paid' ? 'selected' : ''}>Paid</option>
-                        <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
-                    </select>
-                </p>
-                <p><strong>Products:</strong></p>
-                <ul>${productsHtml}</ul>
-                <p><strong>Payment Link:</strong> ${order.paymentLink || 'Not Generated'}</p>
-                <button class="generate-link-btn" data-id="${order.id}" data-amount="${order.total}">Generate Payment Link</button>
-            `;
-            listContainer.appendChild(item);
-        });
-    }
-
-    listContainer.addEventListener('click', async e => {
-        if (e.target.classList.contains('generate-link-btn')) {
-            const orderId = e.target.dataset.id;
-            const amount = e.target.dataset.amount;
-            
-            const razorpayLink = prompt(`Generating link for Order ${orderId} of amount $${amount}. \nEnter mock payment link:`, `https://rzp.io/i/mock${orderId}`);
-            
-            if (razorpayLink) {
-                await updateDoc(doc(db, "orders", orderId), {
-                    paymentLink: razorpayLink
-                });
-                renderOrders();
             }
-        }
-    });
+        });
     
-    listContainer.addEventListener('change', async e => {
-        if (e.target.classList.contains('order-status-selector')) {
-            const orderId = e.target.dataset.id;
-            const newStatus = e.target.value;
-            await updateDoc(doc(db, "orders", orderId), {
-                status: newStatus
+        await renderCategories();
+    }
+    
+    async function manageProducts() {
+        const form = document.getElementById('product-form');
+        const listContainer = document.getElementById('product-list-container');
+        const categorySelect = document.getElementById('product-category');
+        const prodCollection = collection(db, "products");
+    
+        async function populateCategoryDropdown() {
+            const catSnapshot = await getDocs(collection(db, "categories"));
+            const currentValue = categorySelect.value;
+            categorySelect.innerHTML = '<option value="">Select Category</option>';
+            catSnapshot.forEach(doc => {
+                categorySelect.innerHTML += `<option value="${doc.data().name}">${doc.data().name}</option>`;
             });
-            alert('Status updated!');
+            categorySelect.value = currentValue;
         }
-    });
-
-    await renderOrders();
+    
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const product = {
+                name: form['product-name'].value.trim(),
+                description: form['product-description'].value.trim(),
+                price: parseFloat(form['product-price'].value),
+                imageUrl: form['product-image-url'].value.trim(),
+                category: form['product-category'].value,
+            };
+            const id = form['product-id'].value;
+    
+            if (!product.name || !product.price || !product.imageUrl || !product.category) {
+                alert("Please fill all required fields.");
+                return;
+            }
+            
+            try {
+                if (id) {
+                    await setDoc(doc(db, "products", id), product);
+                } else {
+                    await addDoc(prodCollection, product);
+                }
+                form.reset();
+                form['product-id'].value = '';
+                await renderProducts();
+            } catch(error) {
+                console.error("Error saving product:", error);
+            }
+        });
+        
+        async function renderProducts() {
+            await populateCategoryDropdown(); 
+            const querySnapshot = await getDocs(prodCollection);
+            listContainer.innerHTML = '';
+            querySnapshot.forEach((doc) => {
+                const product = { id: doc.id, ...doc.data() };
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                item.innerHTML = `
+                    <span>${product.name} - $${product.price}</span>
+                    <div class="item-actions">
+                        <button class="edit-btn" data-id="${doc.id}">Edit</button>
+                        <button class="delete-btn" data-id="${doc.id}">Delete</button>
+                    </div>`;
+                listContainer.appendChild(item);
+    
+                item.querySelector('.edit-btn').addEventListener('click', () => {
+                    form['product-id'].value = product.id;
+                    form['product-name'].value = product.name;
+                    form['product-description'].value = product.description;
+                    form['product-price'].value = product.price;
+                    form['product-image-url'].value = product.imageUrl;
+                    form['product-category'].value = product.category;
+                    window.scrollTo(0, 0); 
+                });
+    
+                item.querySelector('.delete-btn').addEventListener('click', async () => {
+                    if (confirm('Are you sure you want to delete this product?')) {
+                        try {
+                            await deleteDoc(doc(db, "products", product.id));
+                            await renderProducts();
+                        } catch (error) {
+                            console.error("Error deleting product: ", error);
+                        }
+                    }
+                });
+            });
+        }
+        
+        await renderProducts();
+    }
+    
+    async function manageOrders() {
+        const listContainer = document.getElementById('order-list-container');
+        
+        async function renderOrders() {
+            const querySnapshot = await getDocs(collection(db, "orders"));
+            if (querySnapshot.empty) {
+                listContainer.innerHTML = '<p>No orders found.</p>';
+                return;
+            }
+            listContainer.innerHTML = '';
+            querySnapshot.forEach(doc => {
+                const order = { id: doc.id, ...doc.data() };
+                const item = document.createElement('div');
+                item.className = 'order-item';
+                
+                let productsHtml = order.products.map(p => `<li>${p.name} (Qty: ${p.quantity})</li>`).join('');
+    
+                item.innerHTML = `
+                    <p><strong>Order ID:</strong> ${order.id}</p>
+                    <p><strong>Customer:</strong> ${order.customerEmail || 'N/A'}</p>
+                    <p><strong>Total:</strong> $${order.total.toFixed(2)}</p>
+                    <p><strong>Status:</strong> 
+                        <select class="order-status-selector" data-id="${order.id}">
+                            <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                            <option value="Paid" ${order.status === 'Paid' ? 'selected' : ''}>Paid</option>
+                            <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
+                        </select>
+                    </p>
+                    <p><strong>Products:</strong></p>
+                    <ul>${productsHtml}</ul>
+                    <p><strong>Payment Link:</strong> ${order.paymentLink || 'Not Generated'}</p>
+                    <button class="generate-link-btn" data-id="${order.id}" data-amount="${order.total}">Generate Payment Link</button>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+    
+        listContainer.addEventListener('click', async e => {
+            if (e.target.classList.contains('generate-link-btn')) {
+                const orderId = e.target.dataset.id;
+                const amount = e.target.dataset.amount;
+                
+                const razorpayLink = prompt(`Generating link for Order ${orderId} of amount $${amount}. \nEnter mock payment link:`, `https://rzp.io/i/mock${orderId}`);
+                
+                if (razorpayLink) {
+                    await updateDoc(doc(db, "orders", orderId), {
+                        paymentLink: razorpayLink
+                    });
+                    renderOrders();
+                }
+            }
+        });
+        
+        listContainer.addEventListener('change', async e => {
+            if (e.target.classList.contains('order-status-selector')) {
+                const orderId = e.target.dataset.id;
+                const newStatus = e.target.value;
+                await updateDoc(doc(db, "orders", orderId), {
+                    status: newStatus
+                });
+                alert('Status updated!');
+            }
+        });
+    
+        await renderOrders();
+    }
 }
