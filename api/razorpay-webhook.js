@@ -1,31 +1,27 @@
-// Start of api/razorpay-webhook.js code
 import admin from 'firebase-admin';
 import crypto from 'crypto';
 
+// --- Initialization ---
+// Ensure FIREBASE_SERVICE_ACCOUNT_JSON is set in Vercel Environment Variables
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
   });
 }
-
 const db = admin.firestore();
+
+// Ensure RAZORPAY_WEBHOOK_SECRET is set in Vercel Environment Variables
 const RAZORPAY_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
-
+  // 1. Verify the request is from Razorpay
   const signature = req.headers['x-razorpay-signature'];
   const body = req.body;
-
   try {
     const shasum = crypto.createHmac('sha256', RAZORPAY_SECRET);
     shasum.update(JSON.stringify(body));
     const digest = shasum.digest('hex');
-
     if (digest !== signature) {
       console.error('Signature mismatch.');
       return res.status(403).json({ error: 'Invalid signature' });
@@ -35,30 +31,53 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 
+  // 2. Process the webhook event
   const event = body;
-
-  if (event.event === 'payment_page.paid') { // Event name for Payment Pages
-    const paymentInfo = event.payload.payment_page.entity;
-    const orderId = paymentInfo.notes.order_id; // Get our order ID
+  if (event.event === 'payment.captured') {
+    const paymentInfo = event.payload.payment.entity;
     
-    if (!orderId) {
-        console.log("Webhook received but no order_id found in notes. Ignoring.");
-        return res.status(200).json({ status: 'ignored' });
+    // Get customer phone and amount from the payment
+    const customerPhone = paymentInfo.contact ? paymentInfo.contact.replace('+91', '') : '';
+    const amountPaid = paymentInfo.amount / 100; // Convert from paise to rupees
+
+    if (!customerPhone) {
+        console.warn("Webhook received for payment with no contact number. Cannot find order.");
+        return res.status(200).json({ status: 'ignored_no_contact' });
     }
 
     try {
-      const orderRef = db.collection('orders').doc(orderId);
-      await orderRef.update({
-          status: 'paid', // Update status to 'paid'
+      // 3. Find the LATEST PENDING order that matches the phone and amount
+      const ordersRef = db.collection('orders');
+      const q = ordersRef
+          .where('customerPhone', '==', customerPhone)
+          .where('amount', '==', amountPaid)
+          .where('status', '==', 'pending')
+          .orderBy('createdAt', 'desc')
+          .limit(1);
+
+      const querySnapshot = await q.get();
+
+      if (querySnapshot.empty) {
+        console.warn(`Webhook received, but no matching PENDING order found for phone ${customerPhone} and amount ${amountPaid}.`);
+        return res.status(200).json({ status: 'no_matching_pending_order' });
+      }
+
+      // 4. Update the order to "paid"
+      const orderDoc = querySnapshot.docs[0];
+      await orderDoc.ref.update({
+          status: 'paid',
           paymentId: paymentInfo.id,
-          paymentDetails: paymentInfo 
+          paymentDetails: paymentInfo,
       });
-      console.log(`Successfully updated order ${orderId} to 'paid'.`);
+      
+      console.log(`SUCCESS: Updated order ${orderDoc.id} to 'paid'.`);
+
     } catch (error) {
-      console.error(`Error updating database for order ${orderId}:`, error);
+      console.error(`Database Error: Could not update order for phone ${customerPhone}.`, error);
+      // Still send a 200 to prevent Razorpay from retrying, but log the error for investigation.
     }
   }
 
+  // 5. Acknowledge receipt of the webhook
   res.status(200).json({ status: 'ok' });
 }
-// End of api/razorpay-webhook.js code
