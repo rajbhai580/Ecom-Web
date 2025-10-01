@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Commerce PWA</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <header>
+        <h1>My E-Commerce Store</h1>
+        <nav>
+            <a href="#" id="products-link">Products</a>
+            <a href="#" id="cart-link">Cart (<span id="cart-count">0</span>)</a>
+            <a href="#" id="orders-link">My Orders</a>
+        </nav>
+    </header>
+
+    <main id="app-root">
+        <!-- Products Section -->
+        <section id="products-section">
+            <h2>Products</h2>
+            <div class="filters">
+                <input type="text" id="search-input" placeholder="Search products...">
+                <select id="category-filter">
+                    <option value="">All Categories</option>
+                </select>
+            </div>
+            <div id="product-list" class="grid-container"></div>
+        </section>
+
+        <!-- Cart Section -->
+        <section id="cart-section" class="hidden">
+            <h2>Shopping Cart</h2>
+            <div id="cart-items"></div>
+            <button id="checkout-btn">Checkout</button>
+        </section>
+
+        <!-- Orders Section -->
+        <section id="orders-section" class="hidden">
+            <h2>My Orders</h2>
+            <div id="order-history"></div>
+        </section>
+
+        <!-- Product Detail Modal -->
+        <div id="product-detail-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button">&times;</span>
+                <img id="modal-img" src="" alt="Product Image">
+                <h2 id="modal-title"></h2>
+                <p id="modal-description"></p>
+                <p>Price: $<span id="modal-price"></span></p>
+                <p>Stock: <span id="modal-stock"></span></p>
+                <button id="add-to-cart-modal-btn">Add to Cart</button>
+            </div>
+        </div>
+    </main>
+
+    <script src="firebase.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
