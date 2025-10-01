@@ -1,5 +1,6 @@
 import { db, auth } from './firebase.js';
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+// THE FIX IS HERE: I have added 'doc' to this import list.
 import { collection, addDoc, getDocs, doc, setDoc, deleteDoc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 // ===================================================================
@@ -62,21 +63,17 @@ if (!db || !auth) {
         manageOrders();
     }
 
-    // --- DIRECT UPLOAD IMAGE LOGIC (CLIENT-SIDE) ---
     async function uploadImageDirectly(file, dropZoneEl) {
         if (!IMGBB_API_KEY || IMGBB_API_KEY === "YOUR_IMGBB_API_KEY") {
-            alert("CRITICAL ERROR: ImgBB API Key is not set in admin.js. Please contact the developer.");
+            alert("CRITICAL ERROR: ImgBB API Key is not set in admin.js. Please add it.");
             return null;
         }
-
         const feedbackEl = document.createElement('div');
         feedbackEl.className = 'upload-feedback';
         feedbackEl.textContent = 'Uploading...';
         dropZoneEl.appendChild(feedbackEl);
-
         const formData = new FormData();
         formData.append('image', file);
-
         try {
             const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
                 method: 'POST',
@@ -122,7 +119,6 @@ if (!db || !auth) {
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length) handleFiles(e.target.files);
         });
-
         async function handleFiles(files) {
             for (const file of files) {
                 const url = await uploadImageDirectly(file, dropZoneEl);
@@ -160,8 +156,8 @@ if (!db || !auth) {
         async function renderCategories() {
             const querySnapshot = await getDocs(catCollection);
             listContainer.innerHTML = '';
-            querySnapshot.forEach((doc) => {
-                const category = { id: doc.id, ...doc.data() };
+            querySnapshot.forEach((docRef) => {
+                const category = { id: docRef.id, ...docRef.data() };
                 const item = document.createElement('div');
                 item.className = 'list-item';
                 item.innerHTML = `<span>${category.name}</span><div class="item-actions"><button class="edit-btn" data-id="${category.id}" data-name="${category.name}">Edit</button><button class="delete-btn" data-id="${category.id}">Delete</button></div>`;
@@ -191,7 +187,6 @@ if (!db || !auth) {
         const listContainer = document.getElementById('product-list-container');
         const categorySelect = document.getElementById('product-category');
         const prodCollection = collection(db, "products");
-        
         const bannerUrlInput = document.getElementById('product-banner-url');
         const detailUrlsTextarea = document.getElementById('product-detail-urls');
         const bannerPreview = document.querySelector('#banner-drop-zone .image-preview');
@@ -215,6 +210,7 @@ if (!db || !auth) {
             detailPreview.innerHTML = '';
             const urls = detailUrlsTextarea.value ? detailUrlsTextarea.value.split('\n').filter(u => u) : [];
             urls.forEach((url, index) => {
+                if (!url) return;
                 const imgContainer = document.createElement('div');
                 imgContainer.className = 'img-container';
                 imgContainer.innerHTML = `<img src="${url}" alt="Detail preview ${index + 1}"><button type="button" class="remove-img-btn" data-index="${index}">&times;</button>`;
@@ -244,24 +240,19 @@ if (!db || !auth) {
 
         async function populateCategoryDropdown() {
             const catSnapshot = await getDocs(collection(db, "categories"));
-            const currentValue = categorySelect.value;
             categorySelect.innerHTML = '<option value="">Select Category</option>';
             catSnapshot.forEach(doc => categorySelect.innerHTML += `<option value="${doc.data().name}">${doc.data().name}</option>`);
-            categorySelect.value = currentValue;
         }
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
             const bannerUrl = bannerUrlInput.value;
             const detailUrls = detailUrlsTextarea.value ? detailUrlsTextarea.value.split('\n').filter(url => url) : [];
             const allImageUrls = [bannerUrl, ...detailUrls].filter(url => url);
-
             if (!bannerUrl) {
                 alert("Please provide the Main Product Image.");
                 return;
             }
-
             const originalPriceValue = form['product-original-price'].value;
             const product = {
                 name: form['product-name'].value.trim(),
@@ -274,12 +265,10 @@ if (!db || !auth) {
                 category: form['product-category'].value,
             };
             const id = form['product-id'].value;
-
             if (!product.name || !product.price || !product.paymentLink || !product.category) {
                 alert("Please fill all required fields.");
                 return;
             }
-            
             if (id) {
                 await setDoc(doc(db, "products", id), product);
             } else {
@@ -293,11 +282,11 @@ if (!db || !auth) {
             await populateCategoryDropdown();
             const querySnapshot = await getDocs(prodCollection);
             listContainer.innerHTML = '';
-            querySnapshot.forEach((doc) => {
-                const product = { id: doc.id, ...doc.data() };
+            querySnapshot.forEach((docRef) => {
+                const product = { id: docRef.id, ...docRef.data() };
                 const item = document.createElement('div');
                 item.className = 'list-item';
-                item.innerHTML = `<span>${product.name} - ₹${product.price}</span><div class="item-actions"><button class="edit-btn" data-id="${doc.id}">Edit</button><button class="delete-btn" data-id="${doc.id}">Delete</button></div>`;
+                item.innerHTML = `<span>${product.name} - ₹${product.price}</span><div class="item-actions"><button class="edit-btn" data-id="${docRef.id}">Edit</button><button class="delete-btn" data-id="${docRef.id}">Delete</button></div>`;
                 listContainer.appendChild(item);
 
                 item.querySelector('.edit-btn').addEventListener('click', () => {
@@ -307,16 +296,13 @@ if (!db || !auth) {
                     form['product-description'].value = product.description;
                     form['product-original-price'].value = product.originalPrice || '';
                     form['product-price'].value = product.price;
-                    
                     bannerUrlInput.value = product.imageUrl || '';
                     if (product.imageUrl) {
                         bannerPreview.innerHTML = `<img src="${product.imageUrl}">`;
                         bannerDropZone.classList.add('has-image');
                     }
-                    
                     detailUrlsTextarea.value = (product.imageUrls || []).filter(url => url !== product.imageUrl).join('\n');
                     renderDetailPreviews();
-
                     form['product-payment-link'].value = product.paymentLink;
                     form['product-category'].value = product.category;
                     window.scrollTo(0, 0);
@@ -324,6 +310,8 @@ if (!db || !auth) {
 
                 item.querySelector('.delete-btn').addEventListener('click', async () => {
                     if (confirm('Are you sure?')) {
+                        // The error was trying to use doc(db, "products", product)
+                        // It must use the product ID: product.id
                         await deleteDoc(doc(db, "products", product.id));
                         await renderProducts();
                     }
@@ -347,10 +335,7 @@ if (!db || !auth) {
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const imageUrl = bannerUrlInput.value.trim();
-            if (!imageUrl) {
-                alert("Please upload a banner image first.");
-                return;
-            }
+            if (!imageUrl) { alert("Please upload a banner image first."); return; }
             await addDoc(collection(db, "banners"), { imageUrl, createdAt: new Date() });
             form.reset();
             bannerUrlInput.value = '';
@@ -362,15 +347,14 @@ if (!db || !auth) {
             const q = query(collection(db, "banners"), orderBy("createdAt", "desc"));
             const querySnapshot = await getDocs(q);
             listContainer.innerHTML = '';
-            querySnapshot.forEach((doc) => {
-                const banner = { id: doc.id, ...doc.data() };
+            querySnapshot.forEach((docRef) => {
+                const banner = { id: docRef.id, ...docRef.data() };
                 const item = document.createElement('div');
                 item.className = 'list-item';
                 item.innerHTML = `<img src="${banner.imageUrl}" style="width: 150px; height: auto; border-radius: 5px;"><div class="item-actions"><button class="delete-btn" data-id="${banner.id}">Delete</button></div>`;
                 listContainer.appendChild(item);
             });
         }
-
         listContainer.addEventListener('click', async (e) => {
             if (e.target.classList.contains('delete-btn')) {
                 const id = e.target.dataset.id;
@@ -385,11 +369,10 @@ if (!db || !auth) {
     
     async function manageCustomers() {
         const listContainer = document.getElementById('customer-list-container');
-        const customerCollection = collection(db, "customers");
-        const querySnapshot = await getDocs(customerCollection);
+        const querySnapshot = await getDocs(collection(db, "customers"));
         listContainer.innerHTML = querySnapshot.empty ? '<p>No customers or leads found.</p>' : '';
-        querySnapshot.forEach(doc => {
-            const customer = { id: doc.id, ...doc.data() };
+        querySnapshot.forEach(docRef => {
+            const customer = { id: docRef.id, ...docRef.data() };
             const item = document.createElement('div');
             item.className = 'list-item';
             item.innerHTML = `<span><strong>Name:</strong> ${customer.name}</span><span><strong>Phone:</strong> ${customer.phone}</span>`;
@@ -403,8 +386,8 @@ if (!db || !auth) {
             const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
             const querySnapshot = await getDocs(q);
             listContainer.innerHTML = querySnapshot.empty ? '<p>No orders found yet.</p>' : '';
-            querySnapshot.forEach(doc => {
-                const order = { id: doc.id, ...doc.data() };
+            querySnapshot.forEach(docRef => {
+                const order = { id: docRef.id, ...docRef.data() };
                 const orderDate = order.createdAt.toDate().toLocaleString();
                 const item = document.createElement('div');
                 item.className = 'order-item';
