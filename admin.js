@@ -1,6 +1,5 @@
 import { db, auth } from './firebase.js';
 
-// All imports MUST be at the top level.
 import {
     signInWithEmailAndPassword,
     onAuthStateChanged,
@@ -17,11 +16,9 @@ import {
     updateDoc
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-// Now, we run the main logic, but only if Firebase initialized correctly.
 if (!db || !auth) {
     console.error("Halting admin script: Firebase did not initialize correctly (db or auth is missing).");
 } else {
-    // --- All application logic now runs safely inside this block ---
     
     document.addEventListener('DOMContentLoaded', () => {
         const loginSection = document.getElementById('login-section');
@@ -38,7 +35,8 @@ if (!db || !auth) {
             }
         });
 
-        const loginBtn = document.getElementById('admin--login-btn');
+        // FIX IS HERE: Corrected the ID from 'admin--login-btn' to 'admin-login-btn'
+        const loginBtn = document.getElementById('admin-login-btn'); 
         loginBtn.addEventListener('click', async () => {
             const email = document.getElementById('admin-email').value;
             const password = document.getElementById('admin-password').value;
@@ -84,11 +82,8 @@ if (!db || !auth) {
         manageProducts();
         manageOrders();
     }
-
-    // --- CATEGORY, PRODUCT, and ORDER management functions ---
-    // The code for these functions remains unchanged from the last version.
-    // They are correct and will now execute properly.
     
+    // The rest of the file (manageCategories, manageProducts, manageOrders) is unchanged.
     async function manageCategories() {
         const form = document.getElementById('category-form');
         const listContainer = document.getElementById('category-list-container');
