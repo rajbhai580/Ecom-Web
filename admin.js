@@ -6,6 +6,7 @@ if (!db || !auth) {
     console.error("Halting admin script: Firebase did not initialize correctly.");
 } else {
     document.addEventListener('DOMContentLoaded', () => {
+        // --- Login/Logout and Auth state logic ---
         const loginSection = document.getElementById('login-section');
         const dashboardSection = document.getElementById('dashboard-section');
 
@@ -58,6 +59,7 @@ if (!db || !auth) {
     }
 
     async function manageCategories() {
+        // ... This function is correct from the previous version ...
         const form = document.getElementById('category-form');
         const listContainer = document.getElementById('category-list-container');
         const idField = document.getElementById('category-id');
@@ -88,12 +90,7 @@ if (!db || !auth) {
                 const category = { id: doc.id, ...doc.data() };
                 const item = document.createElement('div');
                 item.className = 'list-item';
-                item.innerHTML = `
-                    <span>${category.name}</span>
-                    <div class="item-actions">
-                        <button class="edit-btn" data-id="${category.id}" data-name="${category.name}">Edit</button>
-                        <button class="delete-btn" data-id="${category.id}">Delete</button>
-                    </div>`;
+                item.innerHTML = `<span>${category.name}</span><div class="item-actions"><button class="edit-btn" data-id="${category.id}" data-name="${category.name}">Edit</button><button class="delete-btn" data-id="${category.id}">Delete</button></div>`;
                 listContainer.appendChild(item);
             });
         }
@@ -123,29 +120,32 @@ if (!db || !auth) {
 
         async function populateCategoryDropdown() {
             const catSnapshot = await getDocs(collection(db, "categories"));
-            const currentValue = categorySelect.value;
             categorySelect.innerHTML = '<option value="">Select Category</option>';
             catSnapshot.forEach(doc => categorySelect.innerHTML += `<option value="${doc.data().name}">${doc.data().name}</option>`);
-            categorySelect.value = currentValue;
         }
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const originalPriceValue = form['product-original-price'].value;
-            const imageUrlsText = form['product-image-url'].value.trim();
-            const imageUrls = imageUrlsText.split('\n').filter(url => url);
+            
+            // --- NEW IMAGE LOGIC ---
+            const bannerUrl = form['product-banner-url'].value.trim();
+            const detailUrlsText = form['product-detail-urls'].value.trim();
+            const detailUrls = detailUrlsText ? detailUrlsText.split('\n').filter(url => url) : [];
+            const allImageUrls = [bannerUrl, ...detailUrls];
 
-            if (imageUrls.length === 0) {
-                alert("Please provide at least one image URL.");
+            if (!bannerUrl) {
+                alert("Please provide the Main Product Image.");
                 return;
             }
+
+            const originalPriceValue = form['product-original-price'].value;
             const product = {
                 name: form['product-name'].value.trim(),
                 description: form['product-description'].value.trim(),
                 price: parseFloat(form['product-price'].value),
                 originalPrice: originalPriceValue ? parseFloat(originalPriceValue) : null,
-                imageUrl: imageUrls[0],
-                imageUrls: imageUrls,
+                imageUrl: bannerUrl, // The main image for the grid
+                imageUrls: allImageUrls, // The full array for the details page
                 paymentLink: form['product-payment-link'].value.trim(),
                 category: form['product-category'].value,
             };
@@ -183,7 +183,9 @@ if (!db || !auth) {
                     form['product-description'].value = product.description;
                     form['product-original-price'].value = product.originalPrice || '';
                     form['product-price'].value = product.price;
-                    form['product-image-url'].value = product.imageUrls.join('\n');
+                    // --- NEW IMAGE LOGIC FOR EDITING ---
+                    form['product-banner-url'].value = product.imageUrl || '';
+                    form['product-detail-urls'].value = (product.imageUrls || []).slice(1).join('\n');
                     form['product-payment-link'].value = product.paymentLink;
                     form['product-category'].value = product.category;
                     window.scrollTo(0, 0);
@@ -201,6 +203,7 @@ if (!db || !auth) {
     }
     
     async function manageBanners() {
+        // ... This function is correct from the previous version ...
         const form = document.getElementById('banner-form');
         const listContainer = document.getElementById('banner-list-container');
         const bannerCollection = collection(db, "banners");
@@ -222,11 +225,7 @@ if (!db || !auth) {
                 const banner = { id: doc.id, ...doc.data() };
                 const item = document.createElement('div');
                 item.className = 'list-item';
-                item.innerHTML = `
-                    <img src="${banner.imageUrl}" style="width: 150px; height: auto; border-radius: 5px;">
-                    <div class="item-actions">
-                        <button class="delete-btn" data-id="${banner.id}">Delete</button>
-                    </div>`;
+                item.innerHTML = `<img src="${banner.imageUrl}" style="width: 150px; height: auto; border-radius: 5px;"><div class="item-actions"><button class="delete-btn" data-id="${banner.id}">Delete</button></div>`;
                 listContainer.appendChild(item);
             });
         }
@@ -244,14 +243,11 @@ if (!db || !auth) {
     }
     
     async function manageCustomers() {
+        // ... This function is correct from the previous version ...
         const listContainer = document.getElementById('customer-list-container');
         const customerCollection = collection(db, "customers");
         const querySnapshot = await getDocs(customerCollection);
-        if (querySnapshot.empty) {
-            listContainer.innerHTML = '<p>No customers or leads found.</p>';
-            return;
-        }
-        listContainer.innerHTML = '';
+        listContainer.innerHTML = querySnapshot.empty ? '<p>No customers or leads found.</p>' : '';
         querySnapshot.forEach(doc => {
             const customer = { id: doc.id, ...doc.data() };
             const item = document.createElement('div');
@@ -262,15 +258,12 @@ if (!db || !auth) {
     }
 
     async function manageOrders() {
+        // ... This function is correct from the previous version ...
         const listContainer = document.getElementById('order-list-container');
         async function renderOrders() {
             const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
             const querySnapshot = await getDocs(q);
-            if (querySnapshot.empty) {
-                listContainer.innerHTML = '<p>No orders found yet.</p>';
-                return;
-            }
-            listContainer.innerHTML = '';
+            listContainer.innerHTML = querySnapshot.empty ? '<p>No orders found yet.</p>' : '';
             querySnapshot.forEach(doc => {
                 const order = { id: doc.id, ...doc.data() };
                 const orderDate = order.createdAt.toDate().toLocaleString();
@@ -294,7 +287,6 @@ if (!db || !auth) {
                 listContainer.appendChild(item);
             });
         }
-
         listContainer.addEventListener('change', async e => {
             if (e.target.classList.contains('order-status-selector')) {
                 const orderId = e.target.dataset.id;
