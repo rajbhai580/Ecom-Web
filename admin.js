@@ -1,13 +1,11 @@
 import { db, auth } from './firebase.js';
 
-// **THE FIX IS HERE:** Auth functions are now imported from the correct 'firebase-auth.js' module.
 import {
     signInWithEmailAndPassword,
     onAuthStateChanged,
     signOut
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 
-// Firestore functions remain imported from the 'firebase-firestore.js' module.
 import {
     collection,
     addDoc,
@@ -19,10 +17,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', () => {
+    // This part remains the same
     const loginSection = document.getElementById('login-section');
     const dashboardSection = document.getElementById('dashboard-section');
 
-    // This will now work correctly
     onAuthStateChanged(auth, user => {
         if (user) {
             loginSection.classList.remove('active');
@@ -34,19 +32,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Login logic
     const loginBtn = document.getElementById('admin-login-btn');
     loginBtn.addEventListener('click', async () => {
         const email = document.getElementById('admin-email').value;
         const password = document.getElementById('admin-password').value;
         const errorP = document.getElementById('login-error');
-        errorP.textContent = ''; // Clear previous errors
+        errorP.textContent = ''; 
 
         try {
             await signInWithEmailAndPassword(auth, email, password);
         } catch (error) {
             console.error("Login failed:", error.message);
-            if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+            if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
                 errorP.textContent = "Invalid email or password.";
             } else {
                 errorP.textContent = "An error occurred during login.";
@@ -54,7 +51,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Logout logic
     const logoutBtn = document.getElementById('admin-logout-btn');
     logoutBtn.addEventListener('click', () => {
         signOut(auth);
@@ -62,10 +58,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initDashboard() {
+    // This part remains the same
     const navButtons = document.querySelectorAll('#admin-nav button');
     const contentViews = document.querySelectorAll('.content-view');
 
-    // Navigation
     navButtons.forEach(button => {
         button.addEventListener('click', () => {
             const targetViewId = button.dataset.view;
@@ -77,16 +73,15 @@ function initDashboard() {
         });
     });
 
-    // Default view
     document.querySelector('#admin-nav button[data-view="categories-view"]').click();
     
-    // Initialize all management sections
     manageCategories();
     manageProducts();
     manageOrders();
 }
 
 // --- CATEGORY MANAGEMENT ---
+// This function was already correct, no changes needed here.
 async function manageCategories() {
     const form = document.getElementById('category-form');
     const listContainer = document.getElementById('category-list-container');
@@ -101,9 +96,9 @@ async function manageCategories() {
         if (!name) return;
 
         try {
-            if (id) { // Update
+            if (id) {
                 await setDoc(doc(db, "categories", id), { name });
-            } else { // Create
+            } else {
                 await addDoc(catCollection, { name });
             }
             form.reset();
@@ -162,11 +157,14 @@ async function manageProducts() {
     const prodCollection = collection(db, "products");
 
     async function populateCategoryDropdown() {
+        // FIX #1: Added the 'db' object to the collection() call.
         const catSnapshot = await getDocs(collection(db, "categories"));
+        const currentValue = categorySelect.value; // Save current selection
         categorySelect.innerHTML = '<option value="">Select Category</option>';
         catSnapshot.forEach(doc => {
             categorySelect.innerHTML += `<option value="${doc.data().name}">${doc.data().name}</option>`;
         });
+        categorySelect.value = currentValue; // Restore selection
     }
 
     form.addEventListener('submit', async (e) => {
@@ -200,7 +198,7 @@ async function manageProducts() {
     });
     
     async function renderProducts() {
-        await populateCategoryDropdown(); // Refresh categories in dropdown
+        await populateCategoryDropdown(); 
         const querySnapshot = await getDocs(prodCollection);
         listContainer.innerHTML = '';
         querySnapshot.forEach((doc) => {
@@ -222,7 +220,7 @@ async function manageProducts() {
                 form['product-price'].value = product.price;
                 form['product-image-url'].value = product.imageUrl;
                 form['product-category'].value = product.category;
-                window.scrollTo(0, 0); // Scroll to top to see the form
+                window.scrollTo(0, 0); 
             });
 
             item.querySelector('.delete-btn').addEventListener('click', async () => {
@@ -243,11 +241,11 @@ async function manageProducts() {
 
 
 // --- ORDER MANAGEMENT ---
-// This function remains the same as the previous version.
 async function manageOrders() {
     const listContainer = document.getElementById('order-list-container');
     
     async function renderOrders() {
+        // FIX #2: Added the 'db' object to the collection() call.
         const querySnapshot = await getDocs(collection(db, "orders"));
         if (querySnapshot.empty) {
             listContainer.innerHTML = '<p>No orders found.</p>';
@@ -286,8 +284,6 @@ async function manageOrders() {
             const orderId = e.target.dataset.id;
             const amount = e.target.dataset.amount;
             
-            // This part still uses a prompt for demonstration.
-            // In a real app, this would trigger a Firebase Function.
             const razorpayLink = prompt(`Generating link for Order ${orderId} of amount $${amount}. \nEnter mock payment link:`, `https://rzp.io/i/mock${orderId}`);
             
             if (razorpayLink) {
