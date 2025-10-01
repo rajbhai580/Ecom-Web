@@ -1,5 +1,5 @@
 import { db } from './firebase.js';
-import { collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, getDocs, query, where, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 let allProducts = [];
 
@@ -38,6 +38,8 @@ function saveUserDetails(name, phone) {
     localStorage.setItem('customerPhone', phone);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
+    // Save customer lead to database for admin panel viewing
+    addDoc(collection(db, "customers"), { name, phone, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
 // --- DATA FETCHING ---
@@ -46,18 +48,23 @@ async function loadData() {
     await loadCategoriesFromDB();
     await loadProductsFromDB();
 }
+
 async function loadBannersFromDB() {
     const container = document.getElementById('promo-carousel');
     const q = query(collection(db, "banners"), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
-    if (querySnapshot.empty) { container.parentElement.style.display = 'none'; return; }
+    if (querySnapshot.empty) {
+        container.parentElement.style.display = 'none';
+        return;
+    }
     container.innerHTML = '';
     querySnapshot.forEach(doc => {
         container.innerHTML += `<div class="carousel-slide"><img src="${doc.data().imageUrl}" alt="Promotional Banner"></div>`;
     });
     initCarousel();
 }
-// In app.js
+
+// THIS IS THE CORRECTED FUNCTION FOR CATEGORIES
 async function loadCategoriesFromDB() {
     const container = document.getElementById('category-list-short');
     try {
@@ -68,21 +75,27 @@ async function loadCategoriesFromDB() {
             return;
         }
         container.innerHTML = '';
+        // This loop now creates the correct "chip" HTML structure
         querySnapshot.forEach(doc => {
-            // This now creates a rounded "chip" for each category
             container.innerHTML += `<div class="category-chip">${doc.data().name}</div>`;
         });
     } catch (error) {
         console.error("Error loading categories:", error);
     }
 }
+
 async function loadProductsFromDB() {
     const grid = document.getElementById('product-grid');
     grid.innerHTML = "<p>Loading products...</p>";
     allProducts = [];
-    const querySnapshot = await getDocs(collection(db, "products"));
-    querySnapshot.forEach(doc => allProducts.push({ id: doc.id, ...doc.data() }));
-    renderProducts(allProducts);
+    try {
+        const querySnapshot = await getDocs(collection(db, "products"));
+        querySnapshot.forEach(doc => allProducts.push({ id: doc.id, ...doc.data() }));
+        renderProducts(allProducts);
+    } catch (error) {
+        console.error("Error loading products:", error);
+        grid.innerHTML = "<p>Could not load products.</p>";
+    }
 }
 
 // --- "MY ORDERS" PAGE LOGIC ---
@@ -135,15 +148,11 @@ function handleBuyNow(productId) {
         return;
     }
     
-    // NEW SIMPLER LOGIC: Add customer and product info to the link
-    // and redirect immediately. No "pending" orders are created.
     const paymentUrl = new URL(product.paymentLink);
-    // Add info for the webhook to use later
     paymentUrl.searchParams.set('notes[product_id]', product.id);
     paymentUrl.searchParams.set('notes[product_name]', product.name);
     paymentUrl.searchParams.set('notes[customer_name]', customerName);
     paymentUrl.searchParams.set('notes[customer_phone]', customerPhone);
-    // Pre-fill the form for a better user experience
     paymentUrl.searchParams.set('prefill[name]', customerName);
     paymentUrl.searchParams.set('prefill[contact]', customerPhone);
     
@@ -205,7 +214,7 @@ function renderProductDetails(productId) {
         priceHTML += `<span class="original-price" style="font-size: 1.2rem;">₹${product.originalPrice.toFixed(2)}</span>`;
     }
     let imageCarouselHTML = `<div class="carousel-container detail-image-carousel">`;
-    product.imageUrls.forEach(url => {
+    (product.imageUrls || [product.imageUrl]).forEach(url => {
         imageCarouselHTML += `<div class="carousel-slide"><img src="${url}" alt="${product.name}" class="product-image-lg"></div>`;
     });
     imageCarouselHTML += `</div>`;
@@ -232,9 +241,11 @@ function initCarousel() {
     let currentIndex = 0;
     const totalSlides = slides.length;
     function updateCarousel() {
-        carousel.scrollTo({ left: slides[currentIndex].offsetLeft, behavior: 'smooth' });
-        dots.forEach(dot => dot.classList.remove('active'));
-        dots[currentIndex].classList.add('active');
+        if (slides[currentIndex]) {
+            carousel.scrollTo({ left: slides[currentIndex].offsetLeft, behavior: 'smooth' });
+            dots.forEach(dot => dot.classList.remove('active'));
+            dots[currentIndex].classList.add('active');
+        }
     }
     setInterval(() => {
         currentIndex = (currentIndex + 1) % totalSlides;
