@@ -10,7 +10,16 @@ const avatarUrls = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    checkUserDetails();
+    // NEW: Check for redirect from Razorpay
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('order_id')) {
+        // If coming back from a payment, go directly to the My Orders page.
+        switchView('orders-view');
+        loadCustomerOrders();
+    } else {
+        checkUserDetails();
+    }
+    
     loadData();
     setupEventListeners();
 });
@@ -153,13 +162,12 @@ async function loadCustomerOrders() {
 
 
 // ===================================================================
-// THIS IS THE FINAL, CORRECTED "BUY NOW" FUNCTION (NO FAKE ORDERS)
+// THIS IS THE FINAL, CORRECTED "BUY NOW" FUNCTION
 // ===================================================================
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     const customerPhone = localStorage.getItem('customerPhone');
     
-    // Check if user is logged in
     if (!customerName || !customerPhone) {
         alert("Please provide your details first.");
         checkUserDetails();
@@ -172,26 +180,31 @@ function handleBuyNow(productId) {
         return;
     }
     
-    // DO NOT CREATE A PENDING ORDER HERE.
-    // Instead, we build the URL with all the info the webhook will need.
-    const paymentUrl = new URL(product.paymentLink);
-    
-    // Add product and customer info to the 'notes' field for the webhook
-    paymentUrl.searchParams.set('notes[product_id]', product.id);
-    paymentUrl.searchParams.set('notes[product_name]', product.name);
-    paymentUrl.searchParams.set('notes[customer_name]', customerName);
-    paymentUrl.searchParams.set('notes[customer_phone]', customerPhone);
+    // Step 1: Create the PENDING order in the database.
+    addDoc(collection(db, "orders"), {
+        customerName,
+        customerPhone,
+        productName: product.name,
+        productId: product.id,
+        amount: product.price,
+        status: "pending",
+        createdAt: new Date()
+    }).then(orderRef => {
+        console.log("Created PENDING order:", orderRef.id);
+        
+        // Step 2: Add a callback URL to the payment link to improve user experience.
+        const paymentUrl = new URL(product.paymentLink);
+        // This brings the user back to the order page after payment.
+        paymentUrl.searchParams.set('callback_url', `${window.location.origin}`);
+        paymentUrl.searchParams.set('callback_method', 'get');
 
-    // Pre-fill the Razorpay form for a better user experience
-    paymentUrl.searchParams.set('prefill[name]', customerName);
-    paymentUrl.searchParams.set('prefill[contact]', customerPhone);
-    
-    // Add the callback URL to bring the user back to the order page
-    paymentUrl.searchParams.set('callback_url', `${window.location.origin}?view=orders`);
-    paymentUrl.searchParams.set('callback_method', 'get');
-    
-    console.log("Redirecting to Razorpay with all necessary info...");
-    window.location.href = paymentUrl.toString();
+        // Step 3: Redirect to the simple, fixed-amount payment link.
+        window.location.href = paymentUrl.toString();
+
+    }).catch(error => {
+        console.error("Error creating pending order:", error);
+        alert("Could not initiate purchase. Please try again.");
+    });
 }
 // ===================================================================
 
