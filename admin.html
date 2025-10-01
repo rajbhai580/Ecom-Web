@@ -7,74 +7,66 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <h1>Admin Panel</h1>
-    </header>
-
-    <main id="admin-root">
+    <div id="admin-container">
         <!-- Login Section -->
-        <section id="login-section">
-            <h2>Admin Login</h2>
-            <input type="email" id="admin-email" placeholder="Email">
-            <input type="password" id="admin-password" placeholder="Password">
-            <button id="admin-login-btn">Login</button>
+        <section id="login-section" class="admin-view active">
+            <div class="form-container">
+                <h2>Admin Login</h2>
+                <input type="email" id="admin-email" placeholder="Email" required>
+                <input type="password" id="admin-password" placeholder="Password" required>
+                <button id="admin-login-btn">Login</button>
+                <p id="login-error" class="error-message"></p>
+            </div>
         </section>
 
-        <section id="admin-dashboard" class="hidden">
-            <nav>
-                <a href="#" id="dashboard-link">Dashboard</a>
-                <a href="#" id="products-mgmt-link">Products</a>
-                <a href="#" id="orders-mgmt-link">Orders</a>
-                <a href="#" id="customers-mgmt-link">Customers</a>
+        <!-- Dashboard Section -->
+        <section id="dashboard-section" class="admin-view">
+            <header id="admin-header">
+                <h1>Dashboard</h1>
                 <button id="admin-logout-btn">Logout</button>
+            </header>
+            <nav id="admin-nav">
+                <button data-view="categories-view">Manage Categories</button>
+                <button data-view="products-view">Manage Products</button>
+                <button data-view="orders-view">Manage Orders</button>
             </nav>
 
-            <!-- Dashboard View -->
-            <div id="dashboard-view">
-                <h2>Dashboard</h2>
-                <div id="stats-container">
-                    <div class="stat-card">
-                        <h3>Total Sales</h3>
-                        <p id="total-sales">$0</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Total Orders</h3>
-                        <p id="total-orders">0</p>
-                    </div>
+            <main id="admin-main-content">
+                <!-- Category Management -->
+                <div id="categories-view" class="content-view">
+                    <h3>Categories</h3>
+                    <form id="category-form" class="admin-form">
+                        <input type="hidden" id="category-id">
+                        <input type="text" id="category-name" placeholder="Category Name" required>
+                        <button type="submit">Save Category</button>
+                    </form>
+                    <div id="category-list-container"></div>
                 </div>
-            </div>
 
-            <!-- Product Management View -->
-            <div id="products-mgmt-view" class="hidden">
-                <h2>Product Management</h2>
-                <form id="product-form">
-                    <input type="hidden" id="product-id">
-                    <input type="text" id="product-name" placeholder="Product Name" required>
-                    <textarea id="product-description" placeholder="Product Description" required></textarea>
-                    <input type="number" id="product-price" placeholder="Price" required>
-                    <input type="number" id="product-stock" placeholder="Stock" required>
-                    <input type="text" id="product-image-url" placeholder="Image URL" required>
-                    <select id="product-category" required></select>
-                    <button type="submit">Save Product</button>
-                </form>
-                <div id="admin-product-list"></div>
-            </div>
+                <!-- Product Management -->
+                <div id="products-view" class="content-view" style="display: none;">
+                    <h3>Products</h3>
+                    <form id="product-form" class="admin-form">
+                        <input type="hidden" id="product-id">
+                        <input type="text" id="product-name" placeholder="Product Name" required>
+                        <textarea id="product-description" placeholder="Description"></textarea>
+                        <input type="number" id="product-price" placeholder="Price" step="0.01" required>
+                        <input type="text" id="product-image-url" placeholder="Image URL" required>
+                        <select id="product-category" required></select>
+                        <button type="submit">Save Product</button>
+                    </form>
+                    <div id="product-list-container"></div>
+                </div>
 
-            <!-- Order Management View -->
-            <div id="orders-mgmt-view" class="hidden">
-                <h2>Order Management</h2>
-                <div id="admin-order-list"></div>
-            </div>
-
-             <!-- Customer Management View -->
-             <div id="customers-mgmt-view" class="hidden">
-                <h2>Customer Management</h2>
-                <div id="customer-list"></div>
-            </div>
+                <!-- Order Management -->
+                <div id="orders-view" class="content-view" style="display: none;">
+                    <h3>Orders</h3>
+                    <div id="order-list-container"></div>
+                </div>
+            </main>
         </section>
-    </main>
+    </div>
 
-    <script src="firebase.js"></script>
-    <script src="admin.js"></script>
+    <script type="module" src="admin.js"></script>
 </body>
 </html>
