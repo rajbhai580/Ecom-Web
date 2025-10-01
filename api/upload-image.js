@@ -1,52 +1,69 @@
+import { formidable } from 'formidable';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
+import fs from 'fs';
 
-// This is your new Vercel Serverless Function.
-// It acts as a secure proxy to the ImgBB API.
+// Vercel's default config for parsing the body doesn't handle files, so we disable it.
+export const config = {
+    api: {
+        bodyParser: false,
+    },
+};
 
 export default async function handler(req, res) {
-    // 1. Only allow POST requests
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    // 2. Get the secret API key from Vercel's environment variables
     const IMGBB_API_KEY = process.env.IMGBB_API_KEY;
     if (!IMGBB_API_KEY) {
+        console.error("Server configuration error: IMGBB_API_KEY is not set in Vercel.");
         return res.status(500).json({ error: 'Server configuration error: ImgBB API key is missing.' });
     }
 
     try {
-        // 3. The front-end will send the image as a Base64 string in the request body.
-        const { image: base64Image } = req.body;
-        if (!base64Image) {
-            return res.status(400).json({ error: 'No image data provided.' });
+        const form = formidable({});
+        
+        // This is an async operation that needs to be awaited
+        const [fields, files] = await new Promise((resolve, reject) => {
+            form.parse(req, (err, fields, files) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve([fields, files]);
+            });
+        });
+        
+        const imageFile = files.image?.[0];
+
+        if (!imageFile) {
+            return res.status(400).json({ error: 'No image file provided in the request.' });
         }
 
-        // 4. Create a form to send to ImgBB's API.
-        const form = new FormData();
-        form.append('key', IMGBB_API_KEY);
-        form.append('image', base64Image); // ImgBB API accepts Base64 strings directly.
+        // We have the file, now let's prepare to send it to ImgBB
+        const imgbbFormData = new FormData();
+        imgbbFormData.append('key', IMGBB_API_KEY);
+        imgbbFormData.append('image', fs.createReadStream(imageFile.filepath));
 
-        // 5. Make the secure, server-to-server request to ImgBB.
         const response = await fetch('https://api.imgbb.com/1/upload', {
             method: 'POST',
-            body: form,
+            body: imgbbFormData,
         });
 
         const result = await response.json();
 
-        // 6. Check if ImgBB reported an error.
         if (!response.ok || !result.success) {
-            console.error('ImgBB API Error:', result);
-            return res.status(500).json({ error: 'Failed to upload image.', details: result.error.message });
+            console.error('ImgBB API Error Response:', result);
+            throw new Error(result.error?.message || `ImgBB API responded with status: ${response.status}`);
         }
-
-        // 7. Send the public image URL back to the front-end.
-        return res.status(200).json({ url: result.data.url });
+        
+        // Send the URL back to the admin panel
+        console.log("Successfully uploaded image. URL:", result.data.url);
+        res.status(200).json({ success: true, url: result.data.url });
 
     } catch (error) {
-        console.error('Error in upload-image function:', error);
-        return res.status(500).json({ error: 'An unexpected error occurred.' });
+        console.error('Upload handler error:', error);
+        res.status(500).json({ success: false, error: 'An internal error occurred while uploading the image.' });
     }
 }
