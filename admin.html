@@ -46,7 +46,7 @@
                     <div id="category-list-container"></div>
                 </div>
 
-                <!-- Product Management with NEW image fields -->
+                <!-- Product Management with NEW UPLOADERS -->
                 <div id="products-view" class="content-view" style="display: none;">
                     <h3>Products</h3>
                     <form id="product-form" class="admin-form">
@@ -61,11 +61,23 @@
                         <label for="product-price">Selling Price</label>
                         <input type="number" id="product-price" placeholder="e.g., 999" step="0.01" required>
                         
-                        <label for="product-banner-url">Main Product Image (for grid view)</label>
-                        <input type="text" id="product-banner-url" placeholder="Paste single image URL here" required>
-                        
-                        <label for="product-detail-urls">Additional Product Images (for details page)</label>
-                        <textarea id="product-detail-urls" placeholder="Paste more image URLs, one per line" rows="4"></textarea>
+                        <!-- NEW UPLOADER for Main Image -->
+                        <label>Main Product Image (for grid view)</label>
+                        <div id="main-image-uploader" class="image-uploader">
+                            <span>Drag & drop an image or click to upload</span>
+                            <input type="file" class="file-input" accept="image/*">
+                        </div>
+                        <div id="main-image-preview" class="image-preview-container"></div>
+                        <input type="hidden" id="product-banner-url">
+
+                        <!-- NEW UPLOADER for Detail Images -->
+                        <label>Additional Product Images (for details page)</label>
+                        <div id="detail-images-uploader" class="image-uploader">
+                            <span>Drag & drop images or click to upload</span>
+                            <input type="file" class="file-input" accept="image/*" multiple>
+                        </div>
+                        <div id="detail-images-preview" class="image-preview-container"></div>
+                        <input type="hidden" id="product-detail-urls">
 
                         <label for="product-payment-link">Razorpay Payment Link</label>
                         <input type="text" id="product-payment-link" required>
@@ -77,23 +89,27 @@
                     <div id="product-list-container"></div>
                 </div>
 
-                <!-- Banner Management (no changes) -->
+                <!-- Banner, Customer, Order Views (no changes) -->
                 <div id="banners-view" class="content-view" style="display: none;">
                     <h3>Manage Banners</h3>
                     <form id="banner-form" class="admin-form">
-                        <input type="text" id="banner-image-url" placeholder="Banner Image URL" required>
+                        <label>Banner Image</label>
+                        <div id="banner-image-uploader" class="image-uploader">
+                            <span>Drag & drop an image or click to upload</span>
+                            <input type="file" class="file-input" accept="image/*">
+                        </div>
+                        <div id="banner-image-preview" class="image-preview-container"></div>
+                        <input type="hidden" id="banner-image-url">
                         <button type="submit">Save Banner</button>
                     </form>
                     <div id="banner-list-container"></div>
                 </div>
 
-                <!-- Customer Management (no changes) -->
                 <div id="customers-view" class="content-view" style="display: none;">
                     <h3>Customers / Leads</h3>
                     <div id="customer-list-container"></div>
                 </div>
 
-                <!-- Order Management (no changes) -->
                 <div id="orders-view" class="content-view" style="display: none;">
                     <h3>Orders</h3>
                     <div id="order-list-container"></div>
