@@ -39,19 +39,27 @@
             </header>
             <main class="app-main">
                 <section class="carousel-section">
-                    <div id="promo-carousel" class="carousel-container">
-                        <!-- Banners loaded by JS -->
-                    </div>
+                    <div id="promo-carousel" class="carousel-container"></div>
                     <div id="carousel-dots" class="carousel-dots"></div>
                 </section>
+                
+                <!-- RESTORED Categories Section -->
+                <section class="categories-section">
+                    <div class="section-header">
+                        <h4>Categories</h4>
+                        <a href="#">See all</a>
+                    </div>
+                    <div id="category-list-short" class="horizontal-scroll">
+                        <!-- Categories loaded by JS -->
+                    </div>
+                </section>
+
                 <section class="new-arrivals-section">
                     <div class="section-header">
                         <h4>New arrivals</h4>
                         <a href="#">See all</a>
                     </div>
-                    <div id="product-grid" class="product-grid">
-                        <!-- Products loaded by JS -->
-                    </div>
+                    <div id="product-grid" class="product-grid"></div>
                 </section>
             </main>
         </div>
@@ -63,9 +71,7 @@
                 <h4>Product Details</h4>
                 <div style="width: 40px;"></div>
             </header>
-            <main class="app-main" id="product-detail-content">
-                <!-- Product details loaded by JS -->
-            </main>
+            <main class="app-main" id="product-detail-content"></main>
             <footer class="action-footer">
                 <button class="icon-btn large-icon"><i class="far fa-heart"></i></button>
                 <button class="btn-primary" id="buy-now-btn">Buy Now</button>
@@ -81,6 +87,18 @@
             </header>
             <main class="app-main" id="customer-orders-list">
                 <!-- Orders loaded by JS -->
+            </main>
+        </div>
+
+        <!-- Placeholder Profile View -->
+        <div id="profile-view" class="view">
+             <header class="app-header-condensed">
+                <button class="icon-btn back-to-home"><i class="fas fa-arrow-left"></i></button>
+                <h4>Profile</h4>
+                <div style="width: 40px;"></div>
+            </header>
+             <main class="app-main">
+                <p>Profile page coming soon!</p>
             </main>
         </div>
 
