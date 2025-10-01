@@ -1,4 +1,3 @@
-javascript
 import { db } from './firebase.js';
 import { collection, getDocs, query, where, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
@@ -286,4 +285,19 @@ function initCarousel() {
     const slides = carousel.querySelectorAll('.carousel-slide');
     if (slides.length <= 1) { dotsContainer.style.display = 'none'; return; }
     dotsContainer.innerHTML = '';
-    slides.forEach((_, index) => { dotsContainer.innerHTML += `<div class="dot ${index === 0 ? 'a
+    slides.forEach((_, index) => { dotsContainer.innerHTML += `<div class="dot ${index === 0 ? 'active' : ''}"></div>`; });
+    const dots = dotsContainer.querySelectorAll('.dot');
+    let currentIndex = 0;
+    const totalSlides = slides.length;
+    function updateCarousel() {
+        if (slides[currentIndex]) {
+            carousel.scrollTo({ left: slides[currentIndex].offsetLeft, behavior: 'smooth' });
+            dots.forEach(dot => dot.classList.remove('active'));
+            dots[currentIndex]?.classList.add('active');
+        }
+    }
+    const autoSlide = setInterval(() => {
+        currentIndex = (currentIndex + 1) % totalSlides;
+        updateCarousel();
+    }, 4000);
+}
