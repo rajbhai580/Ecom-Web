@@ -1,3 +1,4 @@
+javascript
 import { db } from './firebase.js';
 import { collection, getDocs, query, where, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
@@ -5,8 +6,8 @@ let allProducts = [];
 let currentlyDisplayedProducts = [];
 
 const avatarUrls = {
-    male: 'https://i.postimg.cc/9MdxW95M/male-avatar.png',
-    female: 'https://i.postimg.cc/nLpG5317/female-avatar.png'
+    male: 'https://i.ibb.co/Vc0PFYYm/7f7badc277f30c8326a935dffe887664.jpg',
+    female: 'https://i.ibb.co/Rpqrs2y4/d0dce7b389fdf481fbb5e87272e71ccb.jpg'
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -49,13 +50,10 @@ function setupEventListeners() {
 
 function checkUserDetails() {
     const userName = localStorage.getItem('customerName');
-    const userDetailsModal = document.getElementById('user-details-modal');
-    
     if (userName) {
         greetUser(userName);
-        userDetailsModal.classList.add('hidden');
     } else {
-        userDetailsModal.classList.remove('hidden');
+        document.getElementById('user-details-modal').classList.remove('hidden');
     }
 }
 
@@ -66,12 +64,13 @@ function greetUser(name) {
 }
 
 function saveUserDetails(name, phone, avatar) {
+    const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
     localStorage.setItem('customerName', name);
-    localStorage.setItem('customerPhone', phone);
+    localStorage.setItem('customerPhone', sanitizedPhone);
     localStorage.setItem('customerAvatar', avatar);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
-    addDoc(collection(db, "customers"), { name, phone, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
+    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
 function showProfilePage() {
@@ -149,30 +148,13 @@ async function loadCustomerOrders() {
     } catch (error) { console.error("Error loading orders:", error); }
 }
 
-// ===================================================================
-// THIS IS THE FINAL, CORRECTED "BUY NOW" FUNCTION
-// ===================================================================
 function handleBuyNow(productId) {
-    const userDetailsModal = document.getElementById('user-details-modal');
-
-    // NEW CHECK: Is the details popup currently visible on the screen?
-    // We check if the 'hidden' class is MISSING from the element.
-    if (!userDetailsModal.classList.contains('hidden')) {
-        alert("Please provide your details first.");
-        return; // Stop the function immediately.
-    }
-    
-    // If the code reaches here, it means the user's details are already saved.
     const customerName = localStorage.getItem('customerName');
     const customerPhone = localStorage.getItem('customerPhone');
-
+    if (!customerName || !customerPhone) { alert("Please provide your details first."); checkUserDetails(); return; }
     const product = allProducts.find(p => p.id === productId);
-    if (!product || !product.paymentLink) {
-        alert("Sorry, this product cannot be purchased right now.");
-        return;
-    }
-
-    // Create a 'pending' order in the database BEFORE redirecting.
+    if (!product || !product.paymentLink) { alert("Sorry, this product cannot be purchased right now."); return; }
+    
     addDoc(collection(db, "orders"), {
         customerName,
         customerPhone,
@@ -183,14 +165,15 @@ function handleBuyNow(productId) {
         createdAt: new Date()
     }).then(orderRef => {
         console.log("Created PENDING order:", orderRef.id);
-        // Now, redirect to the simple, fixed-amount payment link.
-        window.location.href = product.paymentLink;
+        const paymentUrl = new URL(product.paymentLink);
+        paymentUrl.searchParams.set('callback_url', `${window.location.origin}?order_id=${orderRef.id}`);
+        paymentUrl.searchParams.set('callback_method', 'get');
+        window.location.href = paymentUrl.toString();
     }).catch(error => {
         console.error("Error creating pending order:", error);
         alert("Could not initiate purchase. Please try again.");
     });
 }
-// ===================================================================
 
 function handleProductGridClick(e) {
     const buyBtn = e.target.closest('.buy-now-grid-btn');
@@ -303,19 +286,4 @@ function initCarousel() {
     const slides = carousel.querySelectorAll('.carousel-slide');
     if (slides.length <= 1) { dotsContainer.style.display = 'none'; return; }
     dotsContainer.innerHTML = '';
-    slides.forEach((_, index) => { dotsContainer.innerHTML += `<div class="dot ${index === 0 ? 'active' : ''}"></div>`; });
-    const dots = dotsContainer.querySelectorAll('.dot');
-    let currentIndex = 0;
-    const totalSlides = slides.length;
-    function updateCarousel() {
-        if (slides[currentIndex]) {
-            carousel.scrollTo({ left: slides[currentIndex].offsetLeft, behavior: 'smooth' });
-            dots.forEach(dot => dot.classList.remove('active'));
-            dots[currentIndex]?.classList.add('active');
-        }
-    }
-    const autoSlide = setInterval(() => {
-        currentIndex = (currentIndex + 1) % totalSlides;
-        updateCarousel();
-    }, 4000);
-}
+    slides.forEach((_, index) => { dotsContainer.innerHTML += `<div class="dot ${index === 0 ? 'a
