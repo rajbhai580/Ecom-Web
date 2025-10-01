@@ -1,33 +1,38 @@
 import { db } from './firebase.js';
-// To use Firebase, you'll need to import functions like getDocs, collection, doc, getDoc
-// For now, we'll use mock data to demonstrate the UI.
+import { collection, getDocs } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-// --- MOCK DATA (Replace with Firebase calls) ---
-const mockCategories = ["Fragrance", "Makeup", "Hair", "Skincare", "Body"];
-// In app.js
+let allProducts = [];
+let cart = JSON.parse(localStorage.getItem('cart')) || [];
 
-const mockProducts = [
-    { id: '1', brand: 'The Ordinary', name: 'Glycolic Acid 7% Toning Solution', price: 14.50, imageUrl: 'https://i.postimg.cc/tJ0dj2w1/prod1.png', tag: 'LIMITED EDITION' },
-    { id: '2', brand: 'COSRX', name: 'Propolis Light Cream', price: 32.00, originalPrice: 40.00, rating: 4.8, reviews: 217, imageUrl: 'https://i.postimg.cc/rp0n1y5V/prod2.png' },
-    { id: '3', brand: 'Vichy', name: 'Liftactiv Specialist B3', price: 24.50, imageUrl: 'https://i.postimg.cc/zX76295f/prod4.png' },
-    { id: '4', brand: 'Green Propolis', name: 'Ampule Mask (50pcs)', price: 50.00, imageUrl: 'https://i.postimg.cc/sXv7b7V6/prod3.png' },
-];
-
-let cart = [];
-
-// --- RENDER FUNCTIONS ---
-function renderCategories() {
+// --- ডেটাবেস থেকে ডেটা লোড করার ফাংশন ---
+async function loadCategoriesFromDB() {
     const container = document.getElementById('category-list');
-    container.innerHTML = mockCategories.map(cat => `<div class="category-chip">${cat}</div>`).join('');
+    const querySnapshot = await getDocs(collection(db, "categories"));
+    container.innerHTML = '';
+    querySnapshot.forEach(doc => {
+        const category = doc.data();
+        container.innerHTML += `<div class="category-chip">${category.name}</div>`;
+    });
 }
 
-function renderProducts() {
+async function loadProductsFromDB() {
     const grid = document.getElementById('product-grid');
-    grid.innerHTML = mockProducts.map(p => `
+    const querySnapshot = await getDocs(collection(db, "products"));
+    allProducts = [];
+    querySnapshot.forEach(doc => {
+        allProducts.push({ id: doc.id, ...doc.data() });
+    });
+    renderProducts(allProducts);
+}
+
+// --- রেন্ডার ফাংশন ---
+function renderProducts(productsToRender) {
+    const grid = document.getElementById('product-grid');
+    grid.innerHTML = productsToRender.map(p => `
         <div class="product-card" data-id="${p.id}">
             <button class="wishlist-btn"><i class="far fa-heart"></i></button>
             <img src="${p.imageUrl}" alt="${p.name}">
-            <p class="brand">${p.brand}</p>
+            <p class="brand">${p.category}</p>
             <p class="name">${p.name}</p>
             <div class="price-add">
                 <span class="price">$${p.price.toFixed(2)}</span>
@@ -36,7 +41,6 @@ function renderProducts() {
         </div>
     `).join('');
 }
-
 function renderProductDetails(productId) {
     const product = mockProducts.find(p => p.id === productId);
     const container = document.getElementById('product-detail-content');
@@ -117,10 +121,10 @@ function switchView(viewId) {
     });
 }
 
-// --- EVENT LISTENERS ---
 document.addEventListener('DOMContentLoaded', () => {
-    renderCategories();
-    renderProducts();
+    loadCategoriesFromDB();
+    loadProductsFromDB();
+    updateCartTotal(); // Load cart count on page load
 
     // Bottom Navigation
     document.querySelector('.bottom-nav').addEventListener('click', (e) => {
