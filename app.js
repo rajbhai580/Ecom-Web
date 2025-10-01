@@ -129,53 +129,26 @@ async function loadProductsFromDB() {
     } catch (error) { console.error("Error loading products:", error); }
 }
 
-
-// ===================================================================
-// THIS IS THE FINAL, CORRECTED "MY ORDERS" FUNCTION
-// ===================================================================
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
-
-    // **THIS IS THE CRITICAL FIX:**
-    // If there is no phone number in localStorage, DO NOT proceed.
-    // Show a message and stop the function immediately.
     if (!customerPhone) {
-        container.innerHTML = "<p>Please enter your details on the home page to see your orders.</p>";
-        return; // This line prevents the privacy leak.
+        container.innerHTML = "<p>Could not find your user details. Please log out and log back in.</p>";
+        return;
     }
-
     container.innerHTML = "<p>Loading your orders...</p>";
     try {
-        const ordersRef = collection(db, "orders");
-        // This query is now guaranteed to be secure. It will only run if customerPhone exists.
-        const q = query(ordersRef, where("customerPhone", "==", customerPhone), orderBy("createdAt", "desc"));
+        const q = query(collection(db, "orders"), where("customerPhone", "==", customerPhone), orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
-        
-        if (querySnapshot.empty) {
-            container.innerHTML = "<p>You haven't placed any orders yet.</p>";
-            return;
-        }
-        
+        if (querySnapshot.empty) { container.innerHTML = "<p>You haven't placed any orders yet.</p>"; return; }
         container.innerHTML = '';
         querySnapshot.forEach(doc => {
             const order = doc.data();
             const orderDate = order.createdAt.toDate().toLocaleDateString();
-            container.innerHTML += `
-                <div class="customer-order-card">
-                    <h4>${order.productName}</h4>
-                    <p>Amount: ₹${order.amount.toFixed(2)}</p>
-                    <p>Date: ${orderDate}</p>
-                    <p>Status: <span class="order-status ${order.status}">${order.status}</span></p>
-                </div>`;
+            container.innerHTML += `<div class="customer-order-card"><h4>${order.productName}</h4><p>Amount: ₹${order.amount.toFixed(2)}</p><p>Date: ${orderDate}</p><p>Status: <span class="order-status ${order.status}">${order.status}</span></p></div>`;
         });
-    } catch (error) {
-        console.error("Error loading orders:", error);
-        container.innerHTML = "<p>Could not load your orders. Please check your connection.</p>";
-    }
+    } catch (error) { console.error("Error loading customer-specific orders:", error); }
 }
-// ===================================================================
-
 
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
@@ -297,17 +270,42 @@ function renderProducts(products) {
     }).join('');
 }
 
+// ===================================================================
+// THIS IS THE FINAL, CORRECTED "renderProductDetails" FUNCTION
+// ===================================================================
 function renderProductDetails(productId) {
     const product = allProducts.find(p => p.id === productId);
+    if (!product) {
+        console.error(`Could not find product with ID: ${productId}`);
+        return;
+    }
     const container = document.getElementById('product-detail-content');
+    
     let priceHTML = `<span class="current-price" style="font-size: 1.8rem;">₹${product.price.toFixed(2)}</span>`;
-    if (product.originalPrice && product.originalPrice > p.price) { priceHTML += `<span class="original-price" style="font-size: 1.2rem;">₹${product.originalPrice.toFixed(2)}</span>`; }
+    
+    // **THE FIX IS HERE: Using 'product.originalPrice' instead of 'p.originalPrice'**
+    if (product.originalPrice && product.originalPrice > product.price) {
+        priceHTML += `<span class="original-price" style="font-size: 1.2rem;">₹${product.originalPrice.toFixed(2)}</span>`;
+    }
+    
     let imageCarouselHTML = `<div class="carousel-container detail-image-carousel">`;
-    (product.imageUrls || [product.imageUrl]).forEach(url => { imageCarouselHTML += `<div class="carousel-slide"><img src="${url}" alt="${product.name}" class="product-image-lg"></div>`; });
+    (product.imageUrls || [product.imageUrl]).forEach(url => {
+        imageCarouselHTML += `<div class="carousel-slide"><img src="${url}" alt="${product.name}" class="product-image-lg"></div>`;
+    });
     imageCarouselHTML += `</div>`;
-    container.innerHTML = `${imageCarouselHTML}<div class="product-info"><h5>${product.category}</h5><h2>${product.name}</h2><div class="price-container">${priceHTML}</div><p class="product-description">${product.description || ''}</p></div>`;
+    
+    container.innerHTML = `
+        ${imageCarouselHTML}
+        <div class="product-info">
+            <h5>${product.category}</h5>
+            <h2>${product.name}</h2>
+            <div class="price-container">${priceHTML}</div>
+            <p class="product-description">${product.description || ''}</p>
+        </div>`;
+    
     document.getElementById('buy-now-btn').dataset.id = productId;
 }
+// ===================================================================
 
 function initCarousel() {
     const carousel = document.getElementById('promo-carousel');
@@ -326,7 +324,7 @@ function initCarousel() {
             dots[currentIndex]?.classList.add('active');
         }
     }
-    const autoSlide = setInterval(() => {
+    setInterval(() => {
         currentIndex = (currentIndex + 1) % totalSlides;
         updateCarousel();
     }, 4000);
