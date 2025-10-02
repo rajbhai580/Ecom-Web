@@ -1,12 +1,11 @@
 {
-  "name": "ecom-pwa",
+  "name": "ecom-pwa-serverless",
   "version": "1.0.0",
-  "description": "E-commerce PWA with Vanilla JS",
-  "main": "index.js",
   "private": true,
   "dependencies": {
+    "firebase-admin": "^11.11.1",
     "formidable": "^3.5.1",
-    "node-fetch": "^3.3.2",
-    "form-data": "^4.0.0"
-  }
+    "node-fetch": "^2.7.0"
+  },
+  "type": "module"
 }
