@@ -28,13 +28,12 @@ export default async function handler(req, res) {
   console.log("--- Webhook Invoked ---");
 
   if (req.method !== 'POST') {
-    console.log("Method not allowed:", req.method);
     res.setHeader('Allow', 'POST');
     return res.status(405).end('Method Not Allowed');
   }
 
   if (!RAZORPAY_SECRET) {
-      console.error("FATAL: RAZORPAY_WEBHOOK_SECRET is not set in Vercel Environment Variables.");
+      console.error("FATAL: RAZORPAY_WEBHOOK_SECRET is not set.");
       return res.status(500).json({ error: 'Server configuration error.' });
   }
 
@@ -42,9 +41,9 @@ export default async function handler(req, res) {
     const rawBody = await buffer(req);
     const signature = req.headers['x-razorpay-signature'];
     
-    // --- The Most Reliable Validation Method ---
+    // --- Reliable Validation Method ---
     const shasum = crypto.createHmac('sha256', RAZORPAY_SECRET);
-    shasum.update(rawBody); // Use the raw body buffer from 'micro'
+    shasum.update(rawBody);
     const digest = shasum.digest('hex');
 
     if (digest !== signature) {
@@ -53,47 +52,41 @@ export default async function handler(req, res) {
     }
     console.log("--- Signature Verified Successfully ---");
 
-    // After verification, parse the raw body into JSON
     const body = JSON.parse(rawBody.toString());
     const event = body;
     console.log("Event Type:", event.event);
 
     if (event.event === 'payment.captured') {
         const paymentInfo = event.payload.payment.entity;
-        const razorpayPhone = paymentInfo.contact || '';
-        const customerPhone = razorpayPhone.replace(/\D/g, '').slice(-10);
+        
+        // --- CREATE ORDER LOGIC ---
+        const notes = paymentInfo.notes;
+        const productName = notes.product_name;
+        const productId = notes.product_id;
+        const customerName = notes.customer_name;
+        const customerPhone = notes.customer_phone;
         const amountPaid = paymentInfo.amount / 100;
 
-        console.log(`Payment captured. Searching for pending order for phone: ${customerPhone} and amount: ${amountPaid}`);
-
-        if (!customerPhone) {
-            console.warn("Webhook received for payment with no contact number. Cannot find order.");
-            return res.status(200).json({ status: 'ignored_no_contact' });
+        if (!productId || !customerPhone || !productName) {
+            console.warn("Webhook received without required notes (product_id, customer_phone). Ignoring.");
+            return res.status(200).json({ status: 'ignored_missing_notes' });
         }
 
-        const ordersRef = db.collection('orders');
-        const q = ordersRef
-            .where('customerPhone', '==', customerPhone)
-            .where('amount', '==', amountPaid)
-            .where('status', '==', 'pending')
-            .orderBy('createdAt', 'desc')
-            .limit(1);
-
-        const querySnapshot = await q.get();
-
-        if (querySnapshot.empty) {
-            console.warn(`--- Webhook search complete. No matching PENDING order was found. ---`);
-            return res.status(200).json({ status: 'no_matching_pending_order' });
-        }
-
-        const orderDoc = querySnapshot.docs[0];
-        await orderDoc.ref.update({
-            status: 'paid',
+        const orderData = {
+            customerName,
+            customerPhone,
+            productName,
+            productId,
+            amount: amountPaid,
+            status: 'paid', // Order is created directly as 'paid'
+            createdAt: new Date(),
             paymentId: paymentInfo.id,
             paymentDetails: paymentInfo,
-        });
-        
-        console.log(`--- SUCCESS! Updated order ${orderDoc.id} to 'paid'. ---`);
+        };
+
+        await db.collection('orders').add(orderData);
+        console.log(`--- SUCCESS! Created new PAID order for ${productName} by ${customerName}. ---`);
+
     } else {
         console.log(`Webhook received for event '${event.event}', which is not 'payment.captured'. Ignoring.`);
     }
