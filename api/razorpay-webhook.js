@@ -1,3 +1,4 @@
+import { buffer } from 'micro';
 import admin from 'firebase-admin';
 import crypto from 'crypto';
 
@@ -16,16 +17,6 @@ try {
 const db = admin.firestore();
 const RAZORPAY_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-// Helper function to read the raw body from the request
-const getRawBody = (req) => {
-    return new Promise((resolve, reject) => {
-        const chunks = [];
-        req.on('data', chunk => chunks.push(chunk));
-        req.on('end', () => resolve(Buffer.concat(chunks)));
-        req.on('error', err => reject(err));
-    });
-};
-
 // Disable Vercel's default body parser to access the raw body
 export const config = {
     api: {
@@ -36,19 +27,24 @@ export const config = {
 export default async function handler(req, res) {
   console.log("--- Webhook Invoked ---");
 
-  // First, check for secrets. If they are missing, the function cannot work.
+  if (req.method !== 'POST') {
+    console.log("Method not allowed:", req.method);
+    res.setHeader('Allow', 'POST');
+    return res.status(405).end('Method Not Allowed');
+  }
+
   if (!RAZORPAY_SECRET) {
       console.error("FATAL: RAZORPAY_WEBHOOK_SECRET is not set in Vercel Environment Variables.");
       return res.status(500).json({ error: 'Server configuration error.' });
   }
 
   try {
-    const rawBody = await getRawBody(req);
+    const rawBody = await buffer(req);
     const signature = req.headers['x-razorpay-signature'];
     
-    // --- Reliable Validation Method ---
+    // --- The Most Reliable Validation Method ---
     const shasum = crypto.createHmac('sha256', RAZORPAY_SECRET);
-    shasum.update(rawBody); // Use the raw body buffer
+    shasum.update(rawBody); // Use the raw body buffer from 'micro'
     const digest = shasum.digest('hex');
 
     if (digest !== signature) {
