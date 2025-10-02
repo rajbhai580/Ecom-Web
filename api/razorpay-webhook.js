@@ -2,7 +2,7 @@ import { buffer } from 'micro';
 import admin from 'firebase-admin';
 import crypto from 'crypto';
 
-// --- Secure Initialization ---
+// --- Secure Initialization of Firebase Admin ---
 try {
   if (!admin.apps.length) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
@@ -17,6 +17,7 @@ try {
 const db = admin.firestore();
 const RAZORPAY_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 
+// Disable Vercel's default body parser to access the raw body
 export const config = {
     api: {
         bodyParser: false,
@@ -24,89 +25,81 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  console.log("--- [START] WEBHOOK INVOCATION ---");
+  console.log("--- Webhook Invoked ---");
 
   if (req.method !== 'POST') {
-    console.log("-> [FAIL] Method not POST. Received:", req.method);
     res.setHeader('Allow', 'POST');
     return res.status(405).end('Method Not Allowed');
   }
 
   if (!RAZORPAY_SECRET) {
-      console.error("-> [FATAL] RAZORPAY_WEBHOOK_SECRET is not set in Vercel. Function cannot continue.");
+      console.error("FATAL: RAZORPAY_WEBHOOK_SECRET is not set.");
       return res.status(500).json({ error: 'Server configuration error.' });
   }
 
   try {
-    console.log("Step 1: Reading raw body from request...");
     const rawBody = await buffer(req);
     const signature = req.headers['x-razorpay-signature'];
-    console.log("Step 1: Raw body read successfully.");
-
-    console.log("Step 2: Verifying signature...");
+    
+    // --- Reliable Validation Method ---
     const shasum = crypto.createHmac('sha256', RAZORPAY_SECRET);
     shasum.update(rawBody);
     const digest = shasum.digest('hex');
 
     if (digest !== signature) {
-      console.error('-> [FAIL] SIGNATURE MISMATCH.');
-      console.error('   Calculated Digest:', digest);
-      console.error('   Received Signature:', signature);
+      console.error('--- SIGNATURE MISMATCH --- The secret in Vercel does not match Razorpay.');
       return res.status(403).json({ error: 'Invalid signature.' });
     }
-    console.log("Step 2: Signature Verified Successfully.");
+    console.log("--- Signature Verified Successfully ---");
 
     const body = JSON.parse(rawBody.toString());
     const event = body;
-    console.log("Step 3: Parsed body. Event Type:", event.event);
+    console.log("Event Type:", event.event);
 
     if (event.event === 'payment.captured') {
-        console.log("Step 4: 'payment.captured' event found. Processing...");
         const paymentInfo = event.payload.payment.entity;
-        
-        const notes = paymentInfo.notes;
-        const productName = notes.product_name;
-        const productId = notes.product_id;
-        const customerName = notes.customer_name;
-        const customerPhone = notes.customer_phone;
+        const razorpayPhone = paymentInfo.contact || '';
+        const customerPhone = razorpayPhone.replace(/\D/g, '').slice(-10);
         const amountPaid = paymentInfo.amount / 100;
 
-        console.log("   - Product Name from Notes:", productName);
-        console.log("   - Product ID from Notes:", productId);
-        console.log("   - Customer Name from Notes:", customerName);
-        console.log("   - Customer Phone from Notes:", customerPhone);
+        console.log(`Payment captured. Searching for pending order for phone: ${customerPhone} and amount: ${amountPaid}`);
 
-        if (!productId || !customerPhone || !productName) {
-            console.warn("-> [FAIL] Webhook missing required notes (product_id, customer_phone, or product_name). Ignoring.");
-            return res.status(200).json({ status: 'ignored_missing_notes' });
+        if (!customerPhone) {
+            console.warn("Webhook received for payment with no contact number. Cannot find order.");
+            return res.status(200).json({ status: 'ignored_no_contact' });
         }
 
-        const orderData = {
-            customerName,
-            customerPhone,
-            productName,
-            productId,
-            amount: amountPaid,
+        const ordersRef = db.collection('orders');
+        const q = ordersRef
+            .where('customerPhone', '==', customerPhone)
+            .where('amount', '==', amountPaid)
+            .where('status', '==', 'pending')
+            .orderBy('createdAt', 'desc')
+            .limit(1);
+
+        const querySnapshot = await q.get();
+
+        if (querySnapshot.empty) {
+            console.warn(`--- Webhook search complete. No matching PENDING order was found. ---`);
+            return res.status(200).json({ status: 'no_matching_pending_order' });
+        }
+
+        const orderDoc = querySnapshot.docs[0];
+        await orderDoc.ref.update({
             status: 'paid',
-            createdAt: new Date(),
             paymentId: paymentInfo.id,
             paymentDetails: paymentInfo,
-        };
+        });
         
-        console.log("Step 5: Preparing to create order in Firestore with this data:", JSON.stringify(orderData, null, 2));
-        
-        await db.collection('orders').add(orderData);
-        
-        console.log("--- [SUCCESS] Created new PAID order in Firestore. ---");
-
+        console.log(`--- SUCCESS! Updated order ${orderDoc.id} to 'paid'. ---`);
     } else {
-        console.log(`-> [INFO] Received event '${event.event}', which is not 'payment.captured'. Ignoring.`);
+        console.log(`Webhook received for event '${event.event}', which is not 'payment.captured'. Ignoring.`);
     }
 
     res.status(200).json({ status: 'ok' });
 
   } catch (error) {
-    console.error('--- [FATAL CRASH] An error occurred in the webhook handler ---', error);
+    console.error('--- FATAL ERROR in Webhook Handler ---', error);
     res.status(500).json({ error: 'An internal error occurred.' });
   }
 }
