@@ -11,7 +11,7 @@ const avatarUrls = {
 
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('view') === 'orders') {
+    if (urlParams.has('view') && urlParams.get('view') === 'orders') {
         checkUserDetails();
         switchView('orders-view');
         loadCustomerOrders();
@@ -41,7 +41,6 @@ function setupEventListeners() {
     document.getElementById('buy-now-btn').addEventListener('click', (e) => handleBuyNow(e.target.dataset.id));
     document.querySelector('.bottom-nav').addEventListener('click', handleNavigation);
     document.querySelectorAll('.back-to-home').forEach(btn => btn.addEventListener('click', () => {
-        // Clear query params when going home
         window.history.replaceState({}, document.title, window.location.pathname);
         switchView('home-view');
         resetFiltersAndSearch();
@@ -164,29 +163,30 @@ function handleBuyNow(productId) {
         checkUserDetails();
         return;
     }
-    
     const product = allProducts.find(p => p.id === productId);
     if (!product || !product.paymentLink) {
         alert("Sorry, this product cannot be purchased right now.");
         return;
     }
-
-    const paymentUrl = new URL(product.paymentLink);
     
-    paymentUrl.searchParams.set('notes[product_id]', product.id);
-    paymentUrl.searchParams.set('notes[product_name]', product.name);
-    paymentUrl.searchParams.set('notes[product_price]', product.price);
-    paymentUrl.searchParams.set('notes[customer_name]', customerName);
-    paymentUrl.searchParams.set('notes[customer_phone]', customerPhone);
-
-    paymentUrl.searchParams.set('prefill[name]', customerName);
-    paymentUrl.searchParams.set('prefill[contact]', customerPhone);
-    
-    paymentUrl.searchParams.set('callback_url', `${window.location.origin}?view=orders`);
-    paymentUrl.searchParams.set('callback_method', 'get');
-    
-    console.log("Redirecting to Razorpay...");
-    window.location.href = paymentUrl.toString();
+    addDoc(collection(db, "orders"), {
+        customerName,
+        customerPhone,
+        productName: product.name,
+        productId: product.id,
+        amount: product.price,
+        status: "pending",
+        createdAt: new Date()
+    }).then(orderRef => {
+        console.log("Created PENDING order:", orderRef.id);
+        const paymentUrl = new URL(product.paymentLink);
+        paymentUrl.searchParams.set('callback_url', `${window.location.origin}?view=orders`);
+        paymentUrl.searchParams.set('callback_method', 'get');
+        window.location.href = paymentUrl.toString();
+    }).catch(error => {
+        console.error("Error creating pending order:", error);
+        alert("Could not initiate purchase. Please try again.");
+    });
 }
 
 function handleProductGridClick(e) {
@@ -199,10 +199,7 @@ function handleProductGridClick(e) {
 function handleNavigation(e) {
     const navItem = e.target.closest('.nav-item');
     if (!navItem) return;
-
-    // Clear query params when navigating
     window.history.replaceState({}, document.title, window.location.pathname);
-
     const viewId = navItem.dataset.view;
     switchView(viewId);
     if (viewId === 'orders-view') { loadCustomerOrders(); } 
