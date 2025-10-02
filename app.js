@@ -10,10 +10,9 @@ const avatarUrls = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    // NEW: Check for redirect from Razorpay
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('order_id')) {
-        // If coming back from a payment, go directly to the My Orders page.
+    if (urlParams.get('view') === 'orders') {
+        checkUserDetails();
         switchView('orders-view');
         loadCustomerOrders();
     } else {
@@ -25,7 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupEventListeners() {
-    // User details form with avatar
     document.getElementById('user-details-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const name = document.getElementById('user-name-input').value.trim();
@@ -39,17 +37,15 @@ function setupEventListeners() {
             e.target.classList.add('selected');
         }
     });
-
-    // Main app interactions
     document.getElementById('product-grid').addEventListener('click', handleProductGridClick);
     document.getElementById('buy-now-btn').addEventListener('click', (e) => handleBuyNow(e.target.dataset.id));
     document.querySelector('.bottom-nav').addEventListener('click', handleNavigation);
     document.querySelectorAll('.back-to-home').forEach(btn => btn.addEventListener('click', () => {
+        // Clear query params when going home
+        window.history.replaceState({}, document.title, window.location.pathname);
         switchView('home-view');
         resetFiltersAndSearch();
     }));
-    
-    // Category and Search interactions
     document.getElementById('category-list-short').addEventListener('click', handleCategoryClick);
     document.getElementById('search-icon-btn').addEventListener('click', toggleSearchBar);
     document.getElementById('search-input').addEventListener('input', handleSearch);
@@ -160,14 +156,9 @@ async function loadCustomerOrders() {
     } catch (error) { console.error("Error loading customer-specific orders:", error); }
 }
 
-
-// ===================================================================
-// THIS IS THE FINAL, CORRECTED "BUY NOW" FUNCTION
-// ===================================================================
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     const customerPhone = localStorage.getItem('customerPhone');
-    
     if (!customerName || !customerPhone) {
         alert("Please provide your details first.");
         checkUserDetails();
@@ -179,35 +170,24 @@ function handleBuyNow(productId) {
         alert("Sorry, this product cannot be purchased right now.");
         return;
     }
+
+    const paymentUrl = new URL(product.paymentLink);
     
-    // Step 1: Create the PENDING order in the database.
-    addDoc(collection(db, "orders"), {
-        customerName,
-        customerPhone,
-        productName: product.name,
-        productId: product.id,
-        amount: product.price,
-        status: "pending",
-        createdAt: new Date()
-    }).then(orderRef => {
-        console.log("Created PENDING order:", orderRef.id);
-        
-        // Step 2: Add a callback URL to the payment link to improve user experience.
-        const paymentUrl = new URL(product.paymentLink);
-        // This brings the user back to the order page after payment.
-        paymentUrl.searchParams.set('callback_url', `${window.location.origin}`);
-        paymentUrl.searchParams.set('callback_method', 'get');
+    paymentUrl.searchParams.set('notes[product_id]', product.id);
+    paymentUrl.searchParams.set('notes[product_name]', product.name);
+    paymentUrl.searchParams.set('notes[product_price]', product.price);
+    paymentUrl.searchParams.set('notes[customer_name]', customerName);
+    paymentUrl.searchParams.set('notes[customer_phone]', customerPhone);
 
-        // Step 3: Redirect to the simple, fixed-amount payment link.
-        window.location.href = paymentUrl.toString();
-
-    }).catch(error => {
-        console.error("Error creating pending order:", error);
-        alert("Could not initiate purchase. Please try again.");
-    });
+    paymentUrl.searchParams.set('prefill[name]', customerName);
+    paymentUrl.searchParams.set('prefill[contact]', customerPhone);
+    
+    paymentUrl.searchParams.set('callback_url', `${window.location.origin}?view=orders`);
+    paymentUrl.searchParams.set('callback_method', 'get');
+    
+    console.log("Redirecting to Razorpay...");
+    window.location.href = paymentUrl.toString();
 }
-// ===================================================================
-
 
 function handleProductGridClick(e) {
     const buyBtn = e.target.closest('.buy-now-grid-btn');
@@ -219,6 +199,10 @@ function handleProductGridClick(e) {
 function handleNavigation(e) {
     const navItem = e.target.closest('.nav-item');
     if (!navItem) return;
+
+    // Clear query params when navigating
+    window.history.replaceState({}, document.title, window.location.pathname);
+
     const viewId = navItem.dataset.view;
     switchView(viewId);
     if (viewId === 'orders-view') { loadCustomerOrders(); } 
