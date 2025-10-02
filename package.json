@@ -4,8 +4,7 @@
   "private": true,
   "dependencies": {
     "firebase-admin": "^11.11.1",
-    "formidable": "^3.5.1",
-    "node-fetch": "^2.7.0"
+    "micro": "^10.0.1"
   },
   "type": "module"
 }
