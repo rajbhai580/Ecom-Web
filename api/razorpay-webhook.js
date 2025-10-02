@@ -36,8 +36,9 @@ export const config = {
 export default async function handler(req, res) {
   console.log("--- Webhook Invoked ---");
 
+  // First, check for secrets. If they are missing, the function cannot work.
   if (!RAZORPAY_SECRET) {
-      console.error("FATAL: RAZORPAY_WEBHOOK_SECRET is not set.");
+      console.error("FATAL: RAZORPAY_WEBHOOK_SECRET is not set in Vercel Environment Variables.");
       return res.status(500).json({ error: 'Server configuration error.' });
   }
 
@@ -45,9 +46,9 @@ export default async function handler(req, res) {
     const rawBody = await getRawBody(req);
     const signature = req.headers['x-razorpay-signature'];
     
-    // --- NEW, MORE RELIABLE VALIDATION METHOD ---
+    // --- Reliable Validation Method ---
     const shasum = crypto.createHmac('sha256', RAZORPAY_SECRET);
-    shasum.update(rawBody); // We use the raw body buffer directly
+    shasum.update(rawBody); // Use the raw body buffer
     const digest = shasum.digest('hex');
 
     if (digest !== signature) {
@@ -56,7 +57,7 @@ export default async function handler(req, res) {
     }
     console.log("--- Signature Verified Successfully ---");
 
-    // Now that we've verified the raw body, we can safely parse it as JSON
+    // After verification, parse the raw body into JSON
     const body = JSON.parse(rawBody.toString());
     const event = body;
     console.log("Event Type:", event.event);
