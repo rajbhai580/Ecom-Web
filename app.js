@@ -11,7 +11,7 @@ const avatarUrls = {
 
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('view') && urlParams.get('view') === 'orders') {
+    if (urlParams.get('view') === 'orders') {
         checkUserDetails();
         switchView('orders-view');
         loadCustomerOrders();
@@ -155,6 +155,9 @@ async function loadCustomerOrders() {
     } catch (error) { console.error("Error loading customer-specific orders:", error); }
 }
 
+// ===================================================================
+// THIS IS THE FINAL, SIMPLEST "BUY NOW" FUNCTION (NO FAKE ORDERS)
+// ===================================================================
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     const customerPhone = localStorage.getItem('customerPhone');
@@ -163,31 +166,37 @@ function handleBuyNow(productId) {
         checkUserDetails();
         return;
     }
+    
     const product = allProducts.find(p => p.id === productId);
     if (!product || !product.paymentLink) {
         alert("Sorry, this product cannot be purchased right now.");
         return;
     }
+
+    // DO NOT CREATE A PENDING ORDER HERE.
+    // Instead, we build the URL with all the info the webhook will need.
+    const paymentUrl = new URL(product.paymentLink);
     
-    addDoc(collection(db, "orders"), {
-        customerName,
-        customerPhone,
-        productName: product.name,
-        productId: product.id,
-        amount: product.price,
-        status: "pending",
-        createdAt: new Date()
-    }).then(orderRef => {
-        console.log("Created PENDING order:", orderRef.id);
-        const paymentUrl = new URL(product.paymentLink);
-        paymentUrl.searchParams.set('callback_url', `${window.location.origin}?view=orders`);
-        paymentUrl.searchParams.set('callback_method', 'get');
-        window.location.href = paymentUrl.toString();
-    }).catch(error => {
-        console.error("Error creating pending order:", error);
-        alert("Could not initiate purchase. Please try again.");
-    });
+    // Add product and customer info to the 'notes' field for the webhook.
+    // This is the data the webhook will use to create the order.
+    paymentUrl.searchParams.set('notes[product_id]', product.id);
+    paymentUrl.searchParams.set('notes[product_name]', product.name);
+    paymentUrl.searchParams.set('notes[product_price]', product.price);
+    paymentUrl.searchParams.set('notes[customer_name]', customerName);
+    paymentUrl.searchParams.set('notes[customer_phone]', customerPhone);
+
+    // Pre-fill the Razorpay form for a better user experience.
+    paymentUrl.searchParams.set('prefill[name]', customerName);
+    paymentUrl.searchParams.set('prefill[contact]', customerPhone);
+    
+    // Add a callback URL to bring the user back to the "My Orders" page.
+    paymentUrl.searchParams.set('callback_url', `${window.location.origin}?view=orders`);
+    paymentUrl.searchParams.set('callback_method', 'get');
+    
+    console.log("Redirecting to Razorpay...");
+    window.location.href = paymentUrl.toString();
 }
+// ===================================================================
 
 function handleProductGridClick(e) {
     const buyBtn = e.target.closest('.buy-now-grid-btn');
