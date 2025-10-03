@@ -2,9 +2,6 @@ import { db, auth } from './firebase.js';
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { collection, addDoc, getDocs, doc, setDoc, deleteDoc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-// ===================================================================
-//  IMPORTANT: PASTE YOUR IMGBB API KEY HERE
-// ===================================================================
 const IMGBB_API_KEY = "13aaae548cbbec9e7a5f0a4a6d8eed02"; // <-- REPLACE THIS WITH YOUR REAL KEY
 
 if (!db || !auth) {
@@ -13,7 +10,6 @@ if (!db || !auth) {
     document.addEventListener('DOMContentLoaded', () => {
         const loginSection = document.getElementById('login-section');
         const dashboardSection = document.getElementById('dashboard-section');
-
         onAuthStateChanged(auth, user => {
             if (user) {
                 loginSection.classList.remove('active');
@@ -24,20 +20,14 @@ if (!db || !auth) {
                 loginSection.classList.add('active');
             }
         });
-
         const loginBtn = document.getElementById('admin-login-btn');
         loginBtn.addEventListener('click', async () => {
             const email = document.getElementById('admin-email').value;
             const password = document.getElementById('admin-password').value;
             const errorP = document.getElementById('login-error');
             errorP.textContent = '';
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-            } catch (error) {
-                errorP.textContent = "Invalid email or password.";
-            }
+            try { await signInWithEmailAndPassword(auth, email, password); } catch (error) { errorP.textContent = "Invalid email or password."; }
         });
-
         const logoutBtn = document.getElementById('admin-logout-btn');
         logoutBtn.addEventListener('click', () => signOut(auth));
     });
@@ -53,7 +43,7 @@ if (!db || !auth) {
                 button.classList.add('active');
             });
         });
-        document.querySelector('#admin-nav button[data-view="orders-view"]').click();
+        document.querySelector('#admin-nav button[data-view="pending-orders-view"]').click();
         
         manageCategories();
         manageProducts();
@@ -62,55 +52,41 @@ if (!db || !auth) {
         manageOrders();
     }
 
-    // --- DIRECT UPLOAD IMAGE LOGIC ---
     async function uploadImageDirectly(file, dropZoneEl) {
         if (!IMGBB_API_KEY || IMGBB_API_KEY === "YOUR_IMGBB_API_KEY") {
-            alert("CRITICAL ERROR: ImgBB API Key is not set in admin.js. Please add it.");
+            alert("CRITICAL ERROR: ImgBB API Key is not set in admin.js.");
             return null;
         }
-
         const feedbackEl = document.createElement('div');
         feedbackEl.className = 'upload-feedback';
         feedbackEl.textContent = 'Uploading...';
         dropZoneEl.appendChild(feedbackEl);
-
         const formData = new FormData();
         formData.append('image', file);
-
         try {
-            const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-                method: 'POST',
-                body: formData,
-            });
+            const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: formData });
             const result = await response.json();
-            if (!response.ok || !result.success) {
-                throw new Error(result.error?.message || 'Upload to ImgBB failed');
-            }
+            if (!response.ok || !result.success) { throw new Error(result.error?.message || 'Upload failed'); }
             feedbackEl.textContent = 'Success!';
             setTimeout(() => feedbackEl.remove(), 1500);
             return result.data.url;
         } catch (error) {
-            console.error('Direct Upload error:', error);
-            feedbackEl.textContent = `Upload Failed: ${error.message}`;
-            feedbackEl.style.color = 'red';
-            setTimeout(() => feedbackEl.remove(), 4000);
+            console.error('Upload error:', error);
+            feedbackEl.textContent = 'Upload Failed!';
+            setTimeout(() => feedbackEl.remove(), 3000);
             return null;
         }
     }
 
     function setupDropZone(dropZoneId, isMultiple, onUpload) {
         const dropZoneEl = document.getElementById(dropZoneId);
-        if (!dropZoneEl) {
-            console.error(`Drop zone with ID "${dropZoneId}" not found.`);
-            return;
-        }
+        if (!dropZoneEl) { return; }
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = 'image/*';
         fileInput.multiple = isMultiple;
         fileInput.style.display = 'none';
         dropZoneEl.appendChild(fileInput);
-
         dropZoneEl.addEventListener('click', () => fileInput.click());
         dropZoneEl.addEventListener('dragover', (e) => { e.preventDefault(); dropZoneEl.classList.add('drag-over'); });
         dropZoneEl.addEventListener('dragleave', () => dropZoneEl.classList.remove('drag-over'));
@@ -125,9 +101,7 @@ if (!db || !auth) {
         async function handleFiles(files) {
             for (const file of files) {
                 const url = await uploadImageDirectly(file, dropZoneEl);
-                if (url) {
-                    onUpload(url);
-                }
+                if (url) { onUpload(url); }
             }
         }
     }
@@ -138,24 +112,19 @@ if (!db || !auth) {
         const idField = document.getElementById('category-id');
         const nameField = document.getElementById('category-name');
         const catCollection = collection(db, "categories");
-
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = idField.value;
             const name = nameField.value.trim();
             if (!name) return;
             try {
-                if (id) {
-                    await setDoc(doc(db, "categories", id), { name });
-                } else {
-                    await addDoc(catCollection, { name });
-                }
+                if (id) { await setDoc(doc(db, "categories", id), { name }); }
+                else { await addDoc(catCollection, { name }); }
                 form.reset();
                 idField.value = '';
                 await renderCategories();
             } catch (error) { console.error("Error saving category:", error); }
         });
-
         async function renderCategories() {
             const querySnapshot = await getDocs(catCollection);
             listContainer.innerHTML = '';
@@ -167,19 +136,12 @@ if (!db || !auth) {
                 listContainer.appendChild(item);
             });
         }
-
         listContainer.addEventListener('click', async (e) => {
             const target = e.target;
-            if (target.classList.contains('edit-btn')) {
-                idField.value = target.dataset.id;
-                nameField.value = target.dataset.name;
-            }
+            if (target.classList.contains('edit-btn')) { idField.value = target.dataset.id; nameField.value = target.dataset.name; }
             if (target.classList.contains('delete-btn')) {
                 const id = target.dataset.id;
-                if (confirm('Are you sure?')) {
-                    await deleteDoc(doc(db, "categories", id));
-                    await renderCategories();
-                }
+                if (confirm('Are you sure?')) { await deleteDoc(doc(db, "categories", id)); await renderCategories(); }
             }
         });
         await renderCategories();
@@ -195,20 +157,13 @@ if (!db || !auth) {
         const bannerPreview = document.querySelector('#banner-drop-zone .image-preview');
         const detailPreview = document.querySelector('#detail-drop-zone .image-preview-multiple');
         const bannerDropZone = document.getElementById('banner-drop-zone');
-        
-        setupDropZone('banner-drop-zone', false, (url) => {
-            bannerUrlInput.value = url;
-            bannerPreview.innerHTML = `<img src="${url}" alt="Banner preview">`;
-            bannerDropZone.classList.add('has-image');
-        });
-
+        setupDropZone('banner-drop-zone', false, (url) => { bannerUrlInput.value = url; bannerPreview.innerHTML = `<img src="${url}" alt="Banner preview">`; bannerDropZone.classList.add('has-image'); });
         setupDropZone('detail-drop-zone', true, (url) => {
             const currentUrls = detailUrlsTextarea.value ? detailUrlsTextarea.value.split('\n').filter(u => u) : [];
             currentUrls.push(url);
             detailUrlsTextarea.value = currentUrls.join('\n');
             renderDetailPreviews();
         });
-
         function renderDetailPreviews() {
             detailPreview.innerHTML = '';
             const urls = detailUrlsTextarea.value ? detailUrlsTextarea.value.split('\n').filter(u => u) : [];
@@ -220,7 +175,6 @@ if (!db || !auth) {
                 detailPreview.appendChild(imgContainer);
             });
         }
-        
         detailPreview.addEventListener('click', (e) => {
             if (e.target.classList.contains('remove-img-btn')) {
                 const indexToRemove = parseInt(e.target.dataset.index, 10);
@@ -230,57 +184,30 @@ if (!db || !auth) {
                 renderDetailPreviews();
             }
         });
-
-        function resetProductForm() {
-            form.reset();
-            form['product-id'].value = '';
-            bannerUrlInput.value = '';
-            detailUrlsTextarea.value = '';
-            bannerPreview.innerHTML = '';
-            bannerDropZone.classList.remove('has-image');
-            detailPreview.innerHTML = '';
-        }
-
+        function resetProductForm() { form.reset(); form['product-id'].value = ''; bannerUrlInput.value = ''; detailUrlsTextarea.value = ''; bannerPreview.innerHTML = ''; bannerDropZone.classList.remove('has-image'); detailPreview.innerHTML = ''; }
         async function populateCategoryDropdown() {
             const catSnapshot = await getDocs(collection(db, "categories"));
             categorySelect.innerHTML = '<option value="">Select Category</option>';
             catSnapshot.forEach(doc => categorySelect.innerHTML += `<option value="${doc.data().name}">${doc.data().name}</option>`);
         }
-
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const bannerUrl = bannerUrlInput.value;
             const detailUrls = detailUrlsTextarea.value ? detailUrlsTextarea.value.split('\n').filter(url => url) : [];
             const allImageUrls = [bannerUrl, ...detailUrls].filter(url => url);
-            if (!bannerUrl) {
-                alert("Please provide the Main Product Image.");
-                return;
-            }
+            if (!bannerUrl) { alert("Please provide the Main Product Image."); return; }
             const originalPriceValue = form['product-original-price'].value;
             const product = {
-                name: form['product-name'].value.trim(),
-                description: form['product-description'].value.trim(),
-                price: parseFloat(form['product-price'].value),
-                originalPrice: originalPriceValue ? parseFloat(originalPriceValue) : null,
-                imageUrl: bannerUrl,
-                imageUrls: allImageUrls,
-                paymentLink: form['product-payment-link'].value.trim(),
-                category: form['product-category'].value,
+                name: form['product-name'].value.trim(), description: form['product-description'].value.trim(), price: parseFloat(form['product-price'].value),
+                originalPrice: originalPriceValue ? parseFloat(originalPriceValue) : null, imageUrl: bannerUrl, imageUrls: allImageUrls,
+                paymentLink: form['product-payment-link'].value.trim(), category: form['product-category'].value,
             };
             const id = form['product-id'].value;
-            if (!product.name || !product.price || !product.paymentLink || !product.category) {
-                alert("Please fill all required fields.");
-                return;
-            }
-            if (id) {
-                await setDoc(doc(db, "products", id), product);
-            } else {
-                await addDoc(prodCollection, product);
-            }
+            if (!product.name || !product.price || !product.paymentLink || !product.category) { alert("Please fill all required fields."); return; }
+            if (id) { await setDoc(doc(db, "products", id), product); } else { await addDoc(prodCollection, product); }
             resetProductForm();
             await renderProducts();
         });
-        
         async function renderProducts() {
             await populateCategoryDropdown();
             const querySnapshot = await getDocs(prodCollection);
@@ -293,33 +220,23 @@ if (!db || !auth) {
                 listContainer.appendChild(item);
                 item.querySelector('.edit-btn').addEventListener('click', () => {
                     resetProductForm();
-                    form['product-id'].value = product.id;
-                    form['product-name'].value = product.name;
-                    form['product-description'].value = product.description;
-                    form['product-original-price'].value = product.originalPrice || '';
-                    form['product-price'].value = product.price;
+                    form['product-id'].value = product.id; form['product-name'].value = product.name; form['product-description'].value = product.description;
+                    form['product-original-price'].value = product.originalPrice || ''; form['product-price'].value = product.price;
                     bannerUrlInput.value = product.imageUrl || '';
-                    if (product.imageUrl) {
-                        bannerPreview.innerHTML = `<img src="${product.imageUrl}">`;
-                        bannerDropZone.classList.add('has-image');
-                    }
+                    if (product.imageUrl) { bannerPreview.innerHTML = `<img src="${product.imageUrl}">`; bannerDropZone.classList.add('has-image'); }
                     detailUrlsTextarea.value = (product.imageUrls || []).filter(url => url !== product.imageUrl).join('\n');
                     renderDetailPreviews();
-                    form['product-payment-link'].value = product.paymentLink;
-                    form['product-category'].value = product.category;
+                    form['product-payment-link'].value = product.paymentLink; form['product-category'].value = product.category;
                     window.scrollTo(0, 0);
                 });
                 item.querySelector('.delete-btn').addEventListener('click', async () => {
-                    if (confirm('Are you sure?')) {
-                        await deleteDoc(doc(db, "products", product.id));
-                        await renderProducts();
-                    }
+                    if (confirm('Are you sure?')) { await deleteDoc(doc(db, "products", product.id)); await renderProducts(); }
                 });
             });
         }
         await renderProducts();
     }
-    
+
     async function manageBanners() {
         const form = document.getElementById('banner-form');
         const listContainer = document.getElementById('banner-list-container');
@@ -334,9 +251,7 @@ if (!db || !auth) {
             const imageUrl = bannerUrlInput.value.trim();
             if (!imageUrl) { alert("Please upload a banner image first."); return; }
             await addDoc(collection(db, "banners"), { imageUrl, createdAt: new Date() });
-            form.reset();
-            bannerUrlInput.value = '';
-            bannerPreview.innerHTML = '';
+            form.reset(); bannerUrlInput.value = ''; bannerPreview.innerHTML = '';
             await renderBanners();
         });
         async function renderBanners() {
@@ -354,10 +269,7 @@ if (!db || !auth) {
         listContainer.addEventListener('click', async (e) => {
             if (e.target.classList.contains('delete-btn')) {
                 const id = e.target.dataset.id;
-                if (confirm('Are you sure?')) {
-                    await deleteDoc(doc(db, "banners", id));
-                    await renderBanners();
-                }
+                if (confirm('Are you sure?')) { await deleteDoc(doc(db, "banners", id)); await renderBanners(); }
             }
         });
         await renderBanners();
@@ -377,11 +289,16 @@ if (!db || !auth) {
     }
 
     async function manageOrders() {
-        const listContainer = document.getElementById('order-list-container');
+        const pendingContainer = document.getElementById('pending-order-list-container');
+        const completedContainer = document.getElementById('completed-order-list-container');
+        
         async function renderOrders() {
             const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
             const querySnapshot = await getDocs(q);
-            listContainer.innerHTML = querySnapshot.empty ? '<p>No orders found yet.</p>' : '';
+            pendingContainer.innerHTML = '';
+            completedContainer.innerHTML = '';
+            let hasPending = false;
+            let hasCompleted = false;
             querySnapshot.forEach(docRef => {
                 const order = { id: docRef.id, ...docRef.data() };
                 const orderDate = order.createdAt.toDate().toLocaleString();
@@ -407,36 +324,39 @@ if (!db || !auth) {
                         </p>
                         <button class="delete-order-btn delete-btn" data-id="${order.id}">Delete</button>
                     </div>`;
-                listContainer.appendChild(item);
+                
+                if (order.status === 'pending' || order.status === 'failed') {
+                    pendingContainer.appendChild(item);
+                    hasPending = true;
+                } else {
+                    completedContainer.appendChild(item);
+                    hasCompleted = true;
+                }
             });
+            if (!hasPending) pendingContainer.innerHTML = '<p>No pending or failed orders found.</p>';
+            if (!hasCompleted) completedContainer.innerHTML = '<p>No completed orders found.</p>';
         }
-        listContainer.addEventListener('click', async (e) => {
+
+        const handleOrderActions = async (e) => {
             if (e.target.classList.contains('delete-order-btn')) {
                 const orderId = e.target.dataset.id;
-                if (confirm(`Are you sure you want to permanently delete this order?\n\nID: ${orderId}\n\nThis action cannot be undone.`)) {
-                    try {
-                        await deleteDoc(doc(db, "orders", orderId));
-                        await renderOrders();
-                    } catch (error) {
-                        console.error("Error deleting order:", error);
-                        alert("Failed to delete order.");
-                    }
+                if (confirm(`Are you sure you want to permanently delete this order?\n\nID: ${orderId}`)) {
+                    await deleteDoc(doc(db, "orders", orderId));
+                    await renderOrders();
                 }
             }
-        });
-        listContainer.addEventListener('change', async e => {
             if (e.target.classList.contains('order-status-selector')) {
                 const orderId = e.target.dataset.id;
                 const newStatus = e.target.value;
-                try {
-                    await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-                    alert('Status updated!');
-                } catch (error) {
-                    console.error("Error updating status:", error);
-                    alert("Failed to update status.");
-                }
+                await updateDoc(doc(db, "orders", orderId), { status: newStatus });
+                alert('Status updated!');
+                await renderOrders();
             }
-        });
+        };
+        pendingContainer.addEventListener('click', handleOrderActions);
+        completedContainer.addEventListener('click', handleOrderActions);
+        pendingContainer.addEventListener('change', handleOrderActions);
+        completedContainer.addEventListener('change', handleOrderActions);
         await renderOrders();
     }
 }
