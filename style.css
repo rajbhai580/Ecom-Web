@@ -1,9 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-    --primary-color: #2563eb; /* A more modern blue */
+    --primary-color: #2563eb;
     --primary-color-light: #dbeafe;
-    --text-color: #1f2937; /* Darker gray for better contrast */
+    --text-color: #1f2937;
     --text-light: #6b7280;
     --background-color: #f9fafb;
     --white: #ffffff;
@@ -16,12 +16,7 @@
     --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
-/* Add this to style.css */
 
-.with-action-footer {
-    /* The footer is about 85px tall, so 100px of padding gives plenty of room */
-    padding-bottom: 100px; 
-}
 /* 
 ============================================
 --- GLOBAL & CUSTOMER APP STYLES ---
@@ -104,8 +99,27 @@ body {
 .category-chip { background-color: var(--white); border-radius: 50px; padding: 0.7rem 1.2rem; font-size: 0.9rem; font-weight: 500; white-space: nowrap; cursor: pointer; border: 1px solid var(--border-color); transition: all 0.2s; }
 .category-chip.active, .category-chip:hover { background-color: var(--text-color); color: var(--white); border-color: var(--text-color); }
 
-/* --- Product Details Page --- */
-.action-footer { position: fixed; bottom: 60px; left: 0; right: 0; max-width: 450px; margin: 0 auto; background: var(--white); padding: 1rem; display: flex; gap: 1rem; border-top: 1px solid var(--border-color); z-index: 999; }
+/* --- Product Details Page & Footer Fix --- */
+.with-action-footer {
+    /* Creates an invisible buffer at the bottom of the scrollable content */
+    padding-bottom: 120px; 
+}
+.action-footer {
+    position: fixed;
+    /* This calculation guarantees it sits perfectly above the bottom nav */
+    bottom: calc(env(safe-area-inset-bottom, 0) + 60px); 
+    left: 0;
+    right: 0;
+    max-width: 450px;
+    margin: 0 auto;
+    background: var(--white);
+    padding: 1rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    border-top: 1px solid var(--border-color);
+    z-index: 999;
+}
 .product-image-lg { width: 100%; border-radius: 24px; }
 .product-info h5 { color: var(--text-light); font-weight: 500; }
 .product-info h2 { font-size: 1.8rem; margin: 0.5rem 0; }
@@ -148,7 +162,22 @@ body {
 .btn-secondary:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 
 /* --- Bottom Nav --- */
-.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 450px; margin: 0 auto; display: flex; justify-content: space-around; background-color: var(--white); padding-bottom: calc(env(safe-area-inset-bottom, 0) + 0.5rem); padding-top: 0.8rem; border-top: 1px solid var(--border-color); z-index: 1000; }
+.bottom-nav { 
+    position: fixed; 
+    bottom: 0; 
+    left: 0; 
+    right: 0; 
+    max-width: 450px; 
+    margin: 0 auto; 
+    display: flex; 
+    justify-content: space-around; 
+    align-items: center; /* Center icons vertically */
+    background-color: var(--white); 
+    padding-bottom: env(safe-area-inset-bottom, 0); /* For iPhone safe area */
+    border-top: 1px solid var(--border-color); 
+    z-index: 1000; 
+    height: 60px; /* Fixed height */
+}
 .nav-item { text-decoration: none; color: var(--text-light); font-size: 1.5rem; }
 .nav-item.active { color: var(--primary-color); }
 
@@ -169,7 +198,7 @@ body {
 #admin-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 1rem; margin-bottom: 1rem; }
 #admin-nav { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
 #admin-nav button { padding: 0.8rem 1.2rem; border: 1px solid #ccc; background-color: #f9f9f9; cursor: pointer; border-radius: 5px; font-weight: 500; }
-#admin-nav button.active { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
+.admin-nav button.active { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
 .content-view { padding: 1rem; background-color: var(--white); border-radius: 8px; }
 .list-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border: 1px solid #eee; border-radius: 5px; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 1rem; }
 .list-item .item-actions button { margin-left: 0.5rem; padding: 0.4rem 0.8rem; cursor: pointer; border-radius: 5px; color: var(--white); font-weight: 600; }
