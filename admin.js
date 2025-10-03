@@ -1,6 +1,5 @@
 import { db, auth } from './firebase.js';
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-// THE FIX IS HERE: I have added 'doc' to this import list.
 import { collection, addDoc, getDocs, doc, setDoc, deleteDoc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 // ===================================================================
@@ -310,8 +309,6 @@ if (!db || !auth) {
 
                 item.querySelector('.delete-btn').addEventListener('click', async () => {
                     if (confirm('Are you sure?')) {
-                        // The error was trying to use doc(db, "products", product)
-                        // It must use the product ID: product.id
                         await deleteDoc(doc(db, "products", product.id));
                         await renderProducts();
                     }
@@ -395,6 +392,7 @@ if (!db || !auth) {
                     <p><strong>Order ID:</strong> ${order.id}</p>
                     <p><strong>Date:</strong> ${orderDate}</p>
                     <p><strong>Customer:</strong> ${order.customerName} (${order.customerPhone})</p>
+                    <p><strong>Address:</strong> ${order.customerAddress || 'N/A'}</p>
                     <p><strong>Product:</strong> ${order.productName}</p>
                     <p><strong>Amount:</strong> ₹${order.amount.toFixed(2)}</p>
                     <p><strong>Payment ID:</strong> ${order.paymentId || 'N/A'}</p>
