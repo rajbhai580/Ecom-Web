@@ -17,7 +17,6 @@ try {
 const db = admin.firestore();
 const RAZORPAY_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-// Disable Vercel's default body parser to access the raw body
 export const config = {
     api: {
         bodyParser: false,
@@ -31,7 +30,6 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).end('Method Not Allowed');
   }
-
   if (!RAZORPAY_SECRET) {
       console.error("FATAL: RAZORPAY_WEBHOOK_SECRET is not set.");
       return res.status(500).json({ error: 'Server configuration error.' });
@@ -40,14 +38,12 @@ export default async function handler(req, res) {
   try {
     const rawBody = await buffer(req);
     const signature = req.headers['x-razorpay-signature'];
-    
-    // --- Reliable Validation Method ---
     const shasum = crypto.createHmac('sha256', RAZORPAY_SECRET);
     shasum.update(rawBody);
     const digest = shasum.digest('hex');
 
     if (digest !== signature) {
-      console.error('--- SIGNATURE MISMATCH --- The secret in Vercel does not match Razorpay.');
+      console.error('--- SIGNATURE MISMATCH ---');
       return res.status(403).json({ error: 'Invalid signature.' });
     }
     console.log("--- Signature Verified Successfully ---");
@@ -58,37 +54,42 @@ export default async function handler(req, res) {
 
     if (event.event === 'payment.captured') {
         const paymentInfo = event.payload.payment.entity;
+        const razorpayPhone = paymentInfo.contact || '';
+        const customerPhone = razorpayPhone.replace(/\D/g, '').slice(-10);
         
-        // --- CREATE ORDER LOGIC ---
-        const notes = paymentInfo.notes;
-        const productName = notes.product_name;
-        const productId = notes.product_id;
-        const customerName = notes.customer_name;
-        const customerPhone = notes.customer_phone;
-        const customerAddress = notes.customer_address; // Get the address
-        const amountPaid = paymentInfo.amount / 100;
+        // ROBUSTNESS FIX: Ensure amount is treated as a number
+        const amountPaid = parseFloat((paymentInfo.amount / 100).toFixed(2));
 
-        if (!productId || !customerPhone || !customerAddress) {
-            console.warn("Webhook received without required notes (productId, customerPhone, or address). Ignoring.");
-            return res.status(200).json({ status: 'ignored_missing_notes' });
+        console.log(`Payment captured. Searching for pending order for phone: ${customerPhone} and amount: ${amountPaid}`);
+
+        if (!customerPhone) {
+            console.warn("Webhook received for payment with no contact number. Cannot find order.");
+            return res.status(200).json({ status: 'ignored_no_contact' });
         }
 
-        const orderData = {
-            customerName,
-            customerPhone,
-            customerAddress, // Save the address
-            productName,
-            productId,
-            amount: amountPaid,
-            status: 'paid', // Order is created directly as 'paid'
-            createdAt: new Date(),
+        const ordersRef = db.collection('orders');
+        const q = ordersRef
+            .where('customerPhone', '==', customerPhone)
+            .where('amount', '==', amountPaid) // Firestore will match number to number
+            .where('status', '==', 'pending')
+            .orderBy('createdAt', 'desc')
+            .limit(1);
+
+        const querySnapshot = await q.get();
+
+        if (querySnapshot.empty) {
+            console.warn(`--- Webhook search complete. No matching PENDING order was found. ---`);
+            return res.status(200).json({ status: 'no_matching_pending_order' });
+        }
+
+        const orderDoc = querySnapshot.docs[0];
+        await orderDoc.ref.update({
+            status: 'paid',
             paymentId: paymentInfo.id,
             paymentDetails: paymentInfo,
-        };
-
-        await db.collection('orders').add(orderData);
-        console.log(`--- SUCCESS! Created new PAID order for ${productName} by ${customerName}. ---`);
-
+        });
+        
+        console.log(`--- SUCCESS! Updated order ${orderDoc.id} to 'paid'. ---`);
     } else {
         console.log(`Webhook received for event '${event.event}', which is not 'payment.captured'. Ignoring.`);
     }
