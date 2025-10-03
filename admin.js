@@ -53,7 +53,7 @@ if (!db || !auth) {
                 button.classList.add('active');
             });
         });
-        document.querySelector('#admin-nav button[data-view="categories-view"]').click();
+        document.querySelector('#admin-nav button[data-view="orders-view"]').click();
         
         manageCategories();
         manageProducts();
@@ -62,17 +62,21 @@ if (!db || !auth) {
         manageOrders();
     }
 
+    // --- DIRECT UPLOAD IMAGE LOGIC ---
     async function uploadImageDirectly(file, dropZoneEl) {
         if (!IMGBB_API_KEY || IMGBB_API_KEY === "YOUR_IMGBB_API_KEY") {
             alert("CRITICAL ERROR: ImgBB API Key is not set in admin.js. Please add it.");
             return null;
         }
+
         const feedbackEl = document.createElement('div');
         feedbackEl.className = 'upload-feedback';
         feedbackEl.textContent = 'Uploading...';
         dropZoneEl.appendChild(feedbackEl);
+
         const formData = new FormData();
         formData.append('image', file);
+
         try {
             const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
                 method: 'POST',
@@ -287,7 +291,6 @@ if (!db || !auth) {
                 item.className = 'list-item';
                 item.innerHTML = `<span>${product.name} - ₹${product.price}</span><div class="item-actions"><button class="edit-btn" data-id="${docRef.id}">Edit</button><button class="delete-btn" data-id="${docRef.id}">Delete</button></div>`;
                 listContainer.appendChild(item);
-
                 item.querySelector('.edit-btn').addEventListener('click', () => {
                     resetProductForm();
                     form['product-id'].value = product.id;
@@ -306,7 +309,6 @@ if (!db || !auth) {
                     form['product-category'].value = product.category;
                     window.scrollTo(0, 0);
                 });
-
                 item.querySelector('.delete-btn').addEventListener('click', async () => {
                     if (confirm('Are you sure?')) {
                         await deleteDoc(doc(db, "products", product.id));
@@ -323,12 +325,10 @@ if (!db || !auth) {
         const listContainer = document.getElementById('banner-list-container');
         const bannerUrlInput = document.getElementById('banner-image-url');
         const bannerPreview = document.querySelector('#banner-upload-drop-zone .image-preview');
-
         setupDropZone('banner-upload-drop-zone', false, (url) => {
             bannerUrlInput.value = url;
             bannerPreview.innerHTML = `<img src="${url}" style="max-height: 100px;">`;
         });
-
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const imageUrl = bannerUrlInput.value.trim();
@@ -339,7 +339,6 @@ if (!db || !auth) {
             bannerPreview.innerHTML = '';
             await renderBanners();
         });
-
         async function renderBanners() {
             const q = query(collection(db, "banners"), orderBy("createdAt", "desc"));
             const querySnapshot = await getDocs(q);
@@ -396,23 +395,46 @@ if (!db || !auth) {
                     <p><strong>Product:</strong> ${order.productName}</p>
                     <p><strong>Amount:</strong> ₹${order.amount.toFixed(2)}</p>
                     <p><strong>Payment ID:</strong> ${order.paymentId || 'N/A'}</p>
-                    <p><strong>Status:</strong> 
-                        <select class="order-status-selector" data-id="${order.id}">
-                            <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
-                            <option value="paid" ${order.status === 'paid' ? 'selected' : ''}>Paid</option>
-                            <option value="dispatched" ${order.status === 'dispatched' ? 'selected' : ''}>Dispatched</option>
-                            <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
-                        </select>
-                    </p>`;
+                    <div class="order-actions">
+                        <p><strong>Status:</strong> 
+                            <select class="order-status-selector" data-id="${order.id}">
+                                <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                <option value="paid" ${order.status === 'paid' ? 'selected' : ''}>Paid</option>
+                                <option value="dispatched" ${order.status === 'dispatched' ? 'selected' : ''}>Dispatched</option>
+                                <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
+                                <option value="failed" ${order.status === 'failed' ? 'selected' : ''}>Failed</option>
+                            </select>
+                        </p>
+                        <button class="delete-order-btn delete-btn" data-id="${order.id}">Delete</button>
+                    </div>`;
                 listContainer.appendChild(item);
             });
         }
+        listContainer.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('delete-order-btn')) {
+                const orderId = e.target.dataset.id;
+                if (confirm(`Are you sure you want to permanently delete this order?\n\nID: ${orderId}\n\nThis action cannot be undone.`)) {
+                    try {
+                        await deleteDoc(doc(db, "orders", orderId));
+                        await renderOrders();
+                    } catch (error) {
+                        console.error("Error deleting order:", error);
+                        alert("Failed to delete order.");
+                    }
+                }
+            }
+        });
         listContainer.addEventListener('change', async e => {
             if (e.target.classList.contains('order-status-selector')) {
                 const orderId = e.target.dataset.id;
                 const newStatus = e.target.value;
-                await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-                alert('Status updated!');
+                try {
+                    await updateDoc(doc(db, "orders", orderId), { status: newStatus });
+                    alert('Status updated!');
+                } catch (error) {
+                    console.error("Error updating status:", error);
+                    alert("Failed to update status.");
+                }
             }
         });
         await renderOrders();
