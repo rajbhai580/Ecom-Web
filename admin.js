@@ -2,7 +2,7 @@ import { db, auth } from './firebase.js';
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { collection, addDoc, getDocs, doc, setDoc, deleteDoc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-const IMGBB_API_KEY = "YOUR_IMGBB_API_KEY"; // <-- REPLACE THIS WITH YOUR REAL KEY
+const IMGBB_API_KEY = "13aaae548cbbec9e7a5f0a4a6d8eed02"; // <-- REPLACE THIS WITH YOUR REAL KEY
 
 if (!db || !auth) {
     console.error("Halting admin script: Firebase did not initialize correctly.");
