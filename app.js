@@ -56,8 +56,7 @@ function checkUserDetails() {
 }
 
 function greetUser(name) {
-    // This is a simplified greeting for the h1 version
-    document.querySelector('#user-greeting-name').textContent = name;
+    document.getElementById('user-greeting-name').textContent = name;
 }
 
 function saveUserDetails(name, phone, address) {
@@ -164,13 +163,24 @@ async function loadCustomerOrders() {
             
             let progressTrackerHTML = '<div class="progress-tracker">';
             statuses.forEach((status, index) => {
-                let statusClass = 'step';
+                let statusClass = 'step-container';
+                let stepContent = index + 1; // Default to the number
                 if (index < currentStatusIndex) {
-                    statusClass += ' completed'; // Previous steps
+                    statusClass += ' completed';
+                    stepContent = '&#10003;'; // Checkmark for completed steps
                 } else if (index === currentStatusIndex) {
-                    statusClass += ' active'; // The current step
+                    statusClass += ' active';
                 }
-                progressTrackerHTML += `<div class="${statusClass}">${status}</div>`;
+                
+                // Add the connecting line, but not for the last step
+                const lineHTML = index < statuses.length - 1 ? '<div class="step-line"></div>' : '';
+
+                progressTrackerHTML += `
+                    <div class="${statusClass}">
+                        <div class="step-circle">${stepContent}</div>
+                        <div class="step-label">${status}</div>
+                        ${lineHTML}
+                    </div>`;
             });
             progressTrackerHTML += '</div>';
             
