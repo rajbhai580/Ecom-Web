@@ -27,8 +27,7 @@
                 <button id="admin-logout-btn">Logout</button>
             </header>
             <nav id="admin-nav">
-                <button data-view="pending-orders-view">Pending Orders</button>
-                <button data-view="completed-orders-view">Completed Orders</button>
+                <button data-view="orders-view">Manage Orders</button>
                 <button data-view="products-view">Manage Products</button>
                 <button data-view="categories-view">Manage Categories</button>
                 <button data-view="banners-view">Manage Banners</button>
@@ -36,16 +35,20 @@
             </nav>
 
             <main id="admin-main-content">
-                <!-- Pending Orders View -->
-                <div id="pending-orders-view" class="content-view">
-                    <h3>Pending & Failed Orders</h3>
-                    <div id="pending-order-list-container"></div>
-                </div>
-                
-                <!-- Completed Orders View -->
-                <div id="completed-orders-view" class="content-view" style="display: none;">
-                    <h3>Paid, Dispatched & Delivered Orders</h3>
-                    <div id="completed-order-list-container"></div>
+                 <!-- Orders View with Sub-navigation -->
+                <div id="orders-view" class="content-view">
+                    <h3>Manage Orders</h3>
+                    <div class="sub-nav">
+                        <button class="sub-nav-btn active" data-sub-view="pending-orders-sub-view">Pending & Failed</button>
+                        <button class="sub-nav-btn" data-sub-view="completed-orders-sub-view">Completed</button>
+                    </div>
+                    
+                    <div id="pending-orders-sub-view" class="sub-view active">
+                        <div id="pending-order-list-container"></div>
+                    </div>
+                    <div id="completed-orders-sub-view" class="sub-view">
+                        <div id="completed-order-list-container"></div>
+                    </div>
                 </div>
 
                 <!-- Category Management -->
@@ -68,29 +71,24 @@
                         <input type="text" id="product-name" required>
                         <label for="product-description">Description</label>
                         <textarea id="product-description"></textarea>
-                        
                         <label for="product-original-price">Original Price (MRP)</label>
                         <input type="number" id="product-original-price" placeholder="e.g., 1200" step="0.01">
                         <label for="product-price">Selling Price</label>
                         <input type="number" id="product-price" placeholder="e.g., 999" step="0.01" required>
-                        
                         <label>Main Product Image (for grid view)</label>
                         <div id="banner-drop-zone" class="drop-zone">
                             <div class="drop-zone-prompt">Drag & drop an image here, or click to select</div>
                             <div class="image-preview"></div>
                         </div>
                         <input type="hidden" id="product-banner-url" required>
-
                         <label>Additional Product Images (for details page)</label>
                         <div id="detail-drop-zone" class="drop-zone">
                              <div class="drop-zone-prompt">Drag & drop image(s) here, or click to select</div>
                              <div class="image-preview-multiple"></div>
                         </div>
                         <textarea id="product-detail-urls" class="hidden" rows="4"></textarea>
-
                         <label for="product-payment-link">Razorpay Payment Link</label>
                         <input type="text" id="product-payment-link" required>
-                        
                         <label for="product-category">Category</label>
                         <select id="product-category" required></select>
                         <button type="submit">Save Product</button>
