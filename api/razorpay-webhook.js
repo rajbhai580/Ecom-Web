@@ -58,40 +58,37 @@ export default async function handler(req, res) {
 
     if (event.event === 'payment.captured') {
         const paymentInfo = event.payload.payment.entity;
-        const razorpayPhone = paymentInfo.contact || '';
-        const customerPhone = razorpayPhone.replace(/\D/g, '').slice(-10);
+        
+        // --- CREATE ORDER LOGIC ---
+        const notes = paymentInfo.notes;
+        const productName = notes.product_name;
+        const productId = notes.product_id;
+        const customerName = notes.customer_name;
+        const customerPhone = notes.customer_phone;
+        const customerAddress = notes.customer_address; // Get the address
         const amountPaid = paymentInfo.amount / 100;
 
-        console.log(`Payment captured. Searching for pending order for phone: ${customerPhone} and amount: ${amountPaid}`);
-
-        if (!customerPhone) {
-            console.warn("Webhook received for payment with no contact number. Cannot find order.");
-            return res.status(200).json({ status: 'ignored_no_contact' });
+        if (!productId || !customerPhone || !customerAddress) {
+            console.warn("Webhook received without required notes (productId, customerPhone, or address). Ignoring.");
+            return res.status(200).json({ status: 'ignored_missing_notes' });
         }
 
-        const ordersRef = db.collection('orders');
-        const q = ordersRef
-            .where('customerPhone', '==', customerPhone)
-            .where('amount', '==', amountPaid)
-            .where('status', '==', 'pending')
-            .orderBy('createdAt', 'desc')
-            .limit(1);
-
-        const querySnapshot = await q.get();
-
-        if (querySnapshot.empty) {
-            console.warn(`--- Webhook search complete. No matching PENDING order was found. ---`);
-            return res.status(200).json({ status: 'no_matching_pending_order' });
-        }
-
-        const orderDoc = querySnapshot.docs[0];
-        await orderDoc.ref.update({
-            status: 'paid',
+        const orderData = {
+            customerName,
+            customerPhone,
+            customerAddress, // Save the address
+            productName,
+            productId,
+            amount: amountPaid,
+            status: 'paid', // Order is created directly as 'paid'
+            createdAt: new Date(),
             paymentId: paymentInfo.id,
             paymentDetails: paymentInfo,
-        });
-        
-        console.log(`--- SUCCESS! Updated order ${orderDoc.id} to 'paid'. ---`);
+        };
+
+        await db.collection('orders').add(orderData);
+        console.log(`--- SUCCESS! Created new PAID order for ${productName} by ${customerName}. ---`);
+
     } else {
         console.log(`Webhook received for event '${event.event}', which is not 'payment.captured'. Ignoring.`);
     }
@@ -102,6 +99,4 @@ export default async function handler(req, res) {
     console.error('--- FATAL ERROR in Webhook Handler ---', error);
     res.status(500).json({ error: 'An internal error occurred.' });
   }
-}```
-
-I am confident that this is the correct and final solution. This workflow is simple, reliable, and eliminates the "fake order" problem entirely. I am deeply sorry for the immense frustration and the time you have wasted. This should have been the solution from the start.
+}
