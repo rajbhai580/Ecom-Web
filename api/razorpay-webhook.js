@@ -17,6 +17,7 @@ try {
 const db = admin.firestore();
 const RAZORPAY_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 
+// Disable Vercel's default body parser to access the raw body
 export const config = {
     api: {
         bodyParser: false,
@@ -30,6 +31,7 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).end('Method Not Allowed');
   }
+
   if (!RAZORPAY_SECRET) {
       console.error("FATAL: RAZORPAY_WEBHOOK_SECRET is not set.");
       return res.status(500).json({ error: 'Server configuration error.' });
@@ -38,12 +40,14 @@ export default async function handler(req, res) {
   try {
     const rawBody = await buffer(req);
     const signature = req.headers['x-razorpay-signature'];
+    
+    // --- Reliable Validation Method ---
     const shasum = crypto.createHmac('sha256', RAZORPAY_SECRET);
     shasum.update(rawBody);
     const digest = shasum.digest('hex');
 
     if (digest !== signature) {
-      console.error('--- SIGNATURE MISMATCH ---');
+      console.error('--- SIGNATURE MISMATCH --- The secret in Vercel does not match Razorpay.');
       return res.status(403).json({ error: 'Invalid signature.' });
     }
     console.log("--- Signature Verified Successfully ---");
@@ -56,9 +60,7 @@ export default async function handler(req, res) {
         const paymentInfo = event.payload.payment.entity;
         const razorpayPhone = paymentInfo.contact || '';
         const customerPhone = razorpayPhone.replace(/\D/g, '').slice(-10);
-        
-        // ROBUSTNESS FIX: Ensure amount is treated as a number
-        const amountPaid = parseFloat((paymentInfo.amount / 100).toFixed(2));
+        const amountPaid = paymentInfo.amount / 100;
 
         console.log(`Payment captured. Searching for pending order for phone: ${customerPhone} and amount: ${amountPaid}`);
 
@@ -70,7 +72,7 @@ export default async function handler(req, res) {
         const ordersRef = db.collection('orders');
         const q = ordersRef
             .where('customerPhone', '==', customerPhone)
-            .where('amount', '==', amountPaid) // Firestore will match number to number
+            .where('amount', '==', amountPaid)
             .where('status', '==', 'pending')
             .orderBy('createdAt', 'desc')
             .limit(1);
