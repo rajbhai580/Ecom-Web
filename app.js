@@ -11,7 +11,7 @@ const avatarUrls = {
 
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('view') === 'orders') {
+    if (urlParams.has('view') && urlParams.get('view') === 'orders') {
         checkUserDetails();
         switchView('orders-view');
         loadCustomerOrders();
@@ -24,33 +24,19 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupEventListeners() {
-    // ===================================================================
-    // THIS IS THE FINAL, CORRECTED EVENT LISTENER
-    // ===================================================================
     document.getElementById('user-details-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const name = document.getElementById('user-name-input').value.trim();
         const phone = document.getElementById('user-phone-input').value.trim();
-        // **THE FIX IS HERE: We now get the address from the form.**
-        const address = document.getElementById('user-address-input').value.trim();
         const selectedAvatar = document.querySelector('.avatar-option.selected').dataset.avatar;
-
-        // The check now includes the address.
-        if (name && phone && address) {
-            saveUserDetails(name, phone, address, selectedAvatar);
-        } else {
-            alert("Please fill out all fields.");
-        }
+        if (name && phone) saveUserDetails(name, phone, selectedAvatar);
     });
-    // ===================================================================
-
     document.querySelector('.avatar-chooser').addEventListener('click', (e) => {
         if (e.target.classList.contains('avatar-option')) {
             document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
             e.target.classList.add('selected');
         }
     });
-
     document.getElementById('product-grid').addEventListener('click', handleProductGridClick);
     document.getElementById('buy-now-btn').addEventListener('click', (e) => handleBuyNow(e.target.dataset.id));
     document.querySelector('.bottom-nav').addEventListener('click', handleNavigation);
@@ -80,30 +66,25 @@ function greetUser(name) {
     document.getElementById('header-avatar').src = avatarUrls[avatar];
 }
 
-function saveUserDetails(name, phone, address, avatar) {
+function saveUserDetails(name, phone, avatar) {
     const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
     localStorage.setItem('customerName', name);
     localStorage.setItem('customerPhone', sanitizedPhone);
-    localStorage.setItem('customerAddress', address); // Now saves the address correctly
     localStorage.setItem('customerAvatar', avatar);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
-    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, address, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
+    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
 function showProfilePage() {
     const name = localStorage.getItem('customerName');
     const phone = localStorage.getItem('customerPhone');
-    const address = localStorage.getItem('customerAddress');
     const avatar = localStorage.getItem('customerAvatar') || 'male';
-
     if (name && phone) {
         document.getElementById('profile-name').textContent = name;
         document.getElementById('profile-phone').textContent = phone;
-        document.getElementById('profile-address').textContent = address || 'N/A'; // Now displays correctly
         document.getElementById('profile-photo').src = avatarUrls[avatar];
     }
-    
     document.getElementById('logout-btn').addEventListener('click', () => {
         if (confirm("Are you sure you want to log out?")) {
             localStorage.clear();
@@ -174,34 +155,51 @@ async function loadCustomerOrders() {
     } catch (error) { console.error("Error loading customer-specific orders:", error); }
 }
 
+// ===================================================================
+// THIS IS THE FINAL, GUARANTEED "BUY NOW" FUNCTION
+// ===================================================================
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     const customerPhone = localStorage.getItem('customerPhone');
-    const customerAddress = localStorage.getItem('customerAddress');
-    if (!customerName || !customerPhone || !customerAddress) {
-        alert("Please provide your full details first, including your address.");
+    
+    if (!customerName || !customerPhone) {
+        alert("Please provide your details first.");
         checkUserDetails();
         return;
     }
+    
     const product = allProducts.find(p => p.id === productId);
     if (!product || !product.paymentLink) {
         alert("Sorry, this product cannot be purchased right now.");
         return;
     }
+    
+    // Step 1: Create the PENDING order in the database.
     addDoc(collection(db, "orders"), {
-        customerName, customerPhone, customerAddress, productName: product.name,
-        productId: product.id, amount: product.price, status: "pending", createdAt: new Date()
+        customerName,
+        customerPhone,
+        productName: product.name,
+        productId: product.id,
+        amount: product.price,
+        status: "pending",
+        createdAt: new Date()
     }).then(orderRef => {
         console.log("Created PENDING order:", orderRef.id);
+        
+        // Step 2: Add a callback URL to the payment link to improve user experience.
         const paymentUrl = new URL(product.paymentLink);
         paymentUrl.searchParams.set('callback_url', `${window.location.origin}?view=orders`);
         paymentUrl.searchParams.set('callback_method', 'get');
+
+        // Step 3: Redirect to the simple, fixed-amount payment link.
         window.location.href = paymentUrl.toString();
+
     }).catch(error => {
         console.error("Error creating pending order:", error);
         alert("Could not initiate purchase. Please try again.");
     });
 }
+// ===================================================================
 
 function handleProductGridClick(e) {
     const buyBtn = e.target.closest('.buy-now-grid-btn');
