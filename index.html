@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aura Cosmetics</title>
+    
+    <!-- SEO Meta Tags -->
+    <title>Raj Customer Service Point - Mobile Accessories & Services</title>
+    <meta name="description" content="Your one-stop shop for all mobile accessories and services. Find the best prices on chargers, cables, headphones, tempered glass, and more.">
+    <meta name="keywords" content="mobile accessories, customer service point, chargers, headphones, Raj Customer Service Point">
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
@@ -12,18 +17,15 @@
 </head>
 <body>
 
-    <!-- User Details Modal with YOUR Avatar URLs -->
+    <!-- User Details Modal with Address -->
     <div id="user-details-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3>Welcome!</h3>
-            <p>Please choose an avatar and enter your details.</p>
-            <div class="avatar-chooser">
-                <img src="https://i.ibb.co/Vc0PFYYm/7f7badc277f30c8326a935dffe887664.jpg" alt="Male Avatar" class="avatar-option selected" data-avatar="male">
-                <img src="https://i.ibb.co/Rpqrs2y4/d0dce7b389fdf481fbb5e87272e71ccb.jpg" alt="Female Avatar" class="avatar-option" data-avatar="female">
-            </div>
+            <p>Please enter your details to continue.</p>
             <form id="user-details-form">
-                <input type="text" id="user-name-input" placeholder="Enter your name" required>
+                <input type="text" id="user-name-input" placeholder="Enter your full name" required>
                 <input type="tel" id="user-phone-input" placeholder="Enter your phone number" required>
+                <textarea id="user-address-input" placeholder="Enter your full shipping address" rows="3" required></textarea>
                 <button type="submit">Save & Continue</button>
             </form>
         </div>
@@ -40,11 +42,11 @@
         <div id="home-view" class="view active">
             <header class="app-header">
                 <div class="header-welcome">
-                    <p>Welcome back,</p>
-                    <h3 id="user-greeting-name">Guest</h3>
+                    <!-- SEO Improvement: Main title is now H1 -->
+                    <h1>Raj Customer Service Point</h1>
+                    <p>Welcome back, <span id="user-greeting-name">Guest</span></p>
                 </div>
                 <div class="header-actions">
-                    <img id="header-avatar" class="header-avatar" src="https://i.ibb.co/Vc0PFYYm/7f7badc277f30c8326a935dffe887664.jpg" alt="Avatar">
                     <button id="search-icon-btn" class="icon-btn"><i class="fas fa-search"></i></button>
                 </div>
             </header>
@@ -105,7 +107,6 @@
                 <div style="width: 40px;"></div>
             </header>
              <main class="app-main profile-main">
-                <img id="profile-photo" src="https://i.ibb.co/Vc0PFYYm/7f7badc277f30c8326a935dffe887664.jpg" alt="Profile Photo" class="profile-photo">
                 <div class="profile-details">
                     <div class="profile-details-row">
                         <strong>Name:</strong>
@@ -114,6 +115,10 @@
                     <div class="profile-details-row">
                         <strong>Phone:</strong>
                         <span id="profile-phone"></span>
+                    </div>
+                    <div class="profile-details-row no-border">
+                        <strong>Address:</strong>
+                        <span id="profile-address"></span>
                     </div>
                 </div>
                 <button id="logout-btn" class="btn-secondary">Logout</button>
