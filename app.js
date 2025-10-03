@@ -29,15 +29,9 @@ function setupEventListeners() {
         const name = document.getElementById('user-name-input').value.trim();
         const phone = document.getElementById('user-phone-input').value.trim();
         const address = document.getElementById('user-address-input').value.trim();
-        const selectedAvatar = document.querySelector('.avatar-option.selected').dataset.avatar;
-        if (name && phone && address) saveUserDetails(name, phone, address, selectedAvatar);
+        if (name && phone && address) saveUserDetails(name, phone, address);
     });
-    document.querySelector('.avatar-chooser').addEventListener('click', (e) => {
-        if (e.target.classList.contains('avatar-option')) {
-            document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
-            e.target.classList.add('selected');
-        }
-    });
+    
     document.getElementById('product-grid').addEventListener('click', handleProductGridClick);
     document.getElementById('buy-now-btn').addEventListener('click', (e) => handleBuyNow(e.target.dataset.id));
     document.querySelector('.bottom-nav').addEventListener('click', handleNavigation);
@@ -62,32 +56,28 @@ function checkUserDetails() {
 }
 
 function greetUser(name) {
-    document.getElementById('user-greeting-name').textContent = name;
-    const avatar = localStorage.getItem('customerAvatar') || 'male';
-    document.getElementById('header-avatar').src = avatarUrls[avatar];
+    // This is a simplified greeting for the h1 version
+    document.querySelector('#user-greeting-name').textContent = name;
 }
 
-function saveUserDetails(name, phone, address, avatar) {
+function saveUserDetails(name, phone, address) {
     const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
     localStorage.setItem('customerName', name);
     localStorage.setItem('customerPhone', sanitizedPhone);
     localStorage.setItem('customerAddress', address);
-    localStorage.setItem('customerAvatar', avatar);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
-    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, address, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
+    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, address, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
 function showProfilePage() {
     const name = localStorage.getItem('customerName');
     const phone = localStorage.getItem('customerPhone');
     const address = localStorage.getItem('customerAddress');
-    const avatar = localStorage.getItem('customerAvatar') || 'male';
     if (name && phone) {
         document.getElementById('profile-name').textContent = name;
         document.getElementById('profile-phone').textContent = phone;
         document.getElementById('profile-address').textContent = address || 'N/A';
-        document.getElementById('profile-photo').src = avatarUrls[avatar];
     }
     document.getElementById('logout-btn').addEventListener('click', () => {
         if (confirm("Are you sure you want to log out?")) {
@@ -137,9 +127,16 @@ async function loadProductsFromDB() {
     } catch (error) { console.error("Error loading products:", error); }
 }
 
+// ===================================================================
+// THIS IS THE FINAL, COMPLETE "MY ORDERS" FUNCTION WITH WHATSAPP & TRACKER
+// ===================================================================
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
+    
+    // IMPORTANT: Replace this with YOUR WhatsApp number
+    const myWhatsAppNumber = "918972766578"; // Use country code without '+' or spaces
+
     if (!customerPhone) {
         container.innerHTML = "<p>Could not find your user details. Please log out and log back in.</p>";
         return;
@@ -150,62 +147,86 @@ async function loadCustomerOrders() {
         const q = query(ordersRef, where("customerPhone", "==", customerPhone), orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
         if (querySnapshot.empty) { container.innerHTML = "<p>You haven't placed any orders yet.</p>"; return; }
+        
         container.innerHTML = '';
         querySnapshot.forEach(doc => {
             const order = doc.data();
+            const orderId = doc.id;
             const orderDate = order.createdAt.toDate().toLocaleDateString();
-            container.innerHTML += `<div class="customer-order-card"><h4>${order.productName}</h4><p>Amount: ₹${order.amount.toFixed(2)}</p><p>Date: ${orderDate}</p><p>Status: <span class="order-status ${order.status}">${order.status}</span></p></div>`;
+
+            // Create the pre-filled WhatsApp message
+            const message = `Hello, I have a question about my order.\n\nProduct: ${order.productName}\nOrder ID: ${orderId}`;
+            const whatsappUrl = `https://wa.me/${myWhatsAppNumber}?text=${encodeURIComponent(message)}`;
+
+            // --- PROGRESS TRACKER LOGIC ---
+            const statuses = ['paid', 'dispatched', 'delivered'];
+            const currentStatusIndex = statuses.indexOf(order.status);
+            
+            let progressTrackerHTML = '<div class="progress-tracker">';
+            statuses.forEach((status, index) => {
+                let statusClass = 'step';
+                if (index < currentStatusIndex) {
+                    statusClass += ' completed'; // Previous steps
+                } else if (index === currentStatusIndex) {
+                    statusClass += ' active'; // The current step
+                }
+                progressTrackerHTML += `<div class="${statusClass}">${status}</div>`;
+            });
+            progressTrackerHTML += '</div>';
+            
+            // Determine what to display: the tracker, or the simple status
+            const trackerDisplay = (order.status !== 'pending' && order.status !== 'failed') 
+                ? progressTrackerHTML 
+                : `<p>Status: <span class="order-status ${order.status}">${order.status}</span></p>`;
+
+            // Render the final card
+            container.innerHTML += `
+                <div class="customer-order-card">
+                    <h4>${order.productName}</h4>
+                    <p>Amount: ₹${order.amount.toFixed(2)}</p>
+                    <p>Date: ${orderDate}</p>
+                    <p>Order ID: ${orderId}</p>
+                    ${trackerDisplay}
+                    <a href="${whatsappUrl}" class="whatsapp-btn" target="_blank">
+                        <i class="fab fa-whatsapp"></i> Contact Us
+                    </a>
+                </div>`;
         });
-    } catch (error) { console.error("Error loading customer-specific orders:", error); }
+    } catch (error) { 
+        console.error("Error loading customer-specific orders:", error);
+        container.innerHTML = "<p>Could not load your orders. Please try again.</p>";
+    }
 }
 
-// ===================================================================
-// THIS IS THE FINAL, GUARANTEED "BUY NOW" FUNCTION
-// ===================================================================
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     const customerPhone = localStorage.getItem('customerPhone');
     const customerAddress = localStorage.getItem('customerAddress');
-    
+
     if (!customerName || !customerPhone || !customerAddress) {
         alert("Please provide your full details first, including your address.");
         checkUserDetails();
         return;
     }
-    
     const product = allProducts.find(p => p.id === productId);
     if (!product || !product.paymentLink) {
         alert("Sorry, this product cannot be purchased right now.");
         return;
     }
-    
-    // Step 1: Create the PENDING order in the database.
     addDoc(collection(db, "orders"), {
-        customerName,
-        customerPhone,
-        customerAddress,
-        productName: product.name,
-        productId: product.id,
-        amount: product.price,
-        status: "pending",
-        createdAt: new Date()
+        customerName, customerPhone, customerAddress, productName: product.name,
+        productId: product.id, amount: product.price, status: "pending", createdAt: new Date()
     }).then(orderRef => {
         console.log("Created PENDING order:", orderRef.id);
-        
-        // Step 2: Add a callback URL to the payment link to improve user experience.
         const paymentUrl = new URL(product.paymentLink);
         paymentUrl.searchParams.set('callback_url', `${window.location.origin}?view=orders`);
         paymentUrl.searchParams.set('callback_method', 'get');
-
-        // Step 3: Redirect to the simple, fixed-amount payment link.
         window.location.href = paymentUrl.toString();
-
     }).catch(error => {
         console.error("Error creating pending order:", error);
         alert("Could not initiate purchase. Please try again.");
     });
 }
-// ===================================================================
 
 function handleProductGridClick(e) {
     const buyBtn = e.target.closest('.buy-now-grid-btn');
@@ -293,10 +314,12 @@ function renderProducts(products) {
         <div class="product-card" data-id="${p.id}">
             <button class="wishlist-btn"><i class="far fa-heart"></i></button>
             <div class="product-image-container"><img src="${p.imageUrl}" alt="${p.name}"></div>
-            <p class="brand">${p.category}</p>
-            <p class="name">${p.name}</p>
-            <div class="price-container">${priceHTML}${discountTag}</div>
-            <button class="btn-primary buy-now-grid-btn" data-id="${p.id}">Buy Now</button>
+            <div class="product-card-details">
+                <p class="brand">${p.category}</p>
+                <p class="name">${p.name}</p>
+                <div class="price-container">${priceHTML}${discountTag}</div>
+                <button class="btn-primary buy-now-grid-btn" data-id="${p.id}">Buy Now</button>
+            </div>
         </div>`;
     }).join('');
 }
