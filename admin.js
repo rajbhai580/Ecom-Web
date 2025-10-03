@@ -2,7 +2,7 @@ import { db, auth } from './firebase.js';
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { collection, addDoc, getDocs, doc, setDoc, deleteDoc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-const IMGBB_API_KEY = "13aaae548cbbec9e7a5f0a4a6d8eed02"; // <-- REPLACE THIS WITH YOUR REAL KEY
+const IMGBB_API_KEY = "YOUR_IMGBB_API_KEY"; // <-- REPLACE THIS WITH YOUR REAL KEY
 
 if (!db || !auth) {
     console.error("Halting admin script: Firebase did not initialize correctly.");
@@ -43,7 +43,7 @@ if (!db || !auth) {
                 button.classList.add('active');
             });
         });
-        document.querySelector('#admin-nav button[data-view="pending-orders-view"]').click();
+        document.querySelector('#admin-nav button[data-view="orders-view"]').click();
         
         manageCategories();
         manageProducts();
@@ -291,7 +291,20 @@ if (!db || !auth) {
     async function manageOrders() {
         const pendingContainer = document.getElementById('pending-order-list-container');
         const completedContainer = document.getElementById('completed-order-list-container');
+        const subNavButtons = document.querySelectorAll('.sub-nav-btn');
+        const subViews = document.querySelectorAll('.sub-view');
         
+        subNavButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                subNavButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                const targetSubViewId = button.dataset.subView;
+                subViews.forEach(view => {
+                    view.classList.toggle('active', view.id === targetSubViewId);
+                });
+            });
+        });
+
         async function renderOrders() {
             const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
             const querySnapshot = await getDocs(q);
@@ -338,25 +351,27 @@ if (!db || !auth) {
         }
 
         const handleOrderActions = async (e) => {
-            if (e.target.classList.contains('delete-order-btn')) {
-                const orderId = e.target.dataset.id;
-                if (confirm(`Are you sure you want to permanently delete this order?\n\nID: ${orderId}`)) {
-                    await deleteDoc(doc(db, "orders", orderId));
-                    await renderOrders();
+            if (e.target.classList.contains('delete-order-btn') || e.target.classList.contains('order-status-selector')) {
+                e.stopPropagation();
+                if (e.target.classList.contains('delete-order-btn')) {
+                    const orderId = e.target.dataset.id;
+                    if (confirm(`Are you sure you want to permanently delete this order?\n\nID: ${orderId}`)) {
+                        await deleteDoc(doc(db, "orders", orderId));
+                        await renderOrders();
+                    }
                 }
-            }
-            if (e.target.classList.contains('order-status-selector')) {
-                const orderId = e.target.dataset.id;
-                const newStatus = e.target.value;
-                await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-                alert('Status updated!');
-                await renderOrders();
+                if (e.target.classList.contains('order-status-selector')) {
+                    const orderId = e.target.dataset.id;
+                    const newStatus = e.target.value;
+                    await updateDoc(doc(db, "orders", orderId), { status: newStatus });
+                    alert('Status updated!');
+                    await renderOrders();
+}
             }
         };
-        pendingContainer.addEventListener('click', handleOrderActions);
-        completedContainer.addEventListener('click', handleOrderActions);
-        pendingContainer.addEventListener('change', handleOrderActions);
-        completedContainer.addEventListener('change', handleOrderActions);
+        const ordersView = document.getElementById('orders-view');
+        ordersView.addEventListener('click', handleOrderActions);
+        ordersView.addEventListener('change', handleOrderActions);
         await renderOrders();
     }
 }
