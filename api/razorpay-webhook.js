@@ -1,92 +1,102 @@
-import crypto from "crypto";
-import admin from "firebase-admin";
+import { buffer } from 'micro';
+import admin from 'firebase-admin';
+import crypto from 'crypto';
 
-// ✅ Init Firebase only once
-if (!admin.apps.length) {
-  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
+// --- Secure Initialization of Firebase Admin ---
+try {
+  if (!admin.apps.length) {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+  }
+} catch (error) {
+  console.error('CRITICAL: Firebase Admin initialization failed.', error);
 }
-const db = admin.firestore();
 
+const db = admin.firestore();
 const RAZORPAY_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 
+// Disable Vercel's default body parser to access the raw body
 export const config = {
-  api: {
-    bodyParser: false, // disable default parser
-  },
+    api: {
+        bodyParser: false,
+    },
 };
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return res.status(405).end("Method Not Allowed");
+  console.log("--- Webhook Invoked ---");
+
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).end('Method Not Allowed');
+  }
+
+  if (!RAZORPAY_SECRET) {
+      console.error("FATAL: RAZORPAY_WEBHOOK_SECRET is not set.");
+      return res.status(500).json({ error: 'Server configuration error.' });
   }
 
   try {
-    // --- Get raw body buffer ---
-    const chunks = [];
-    for await (const chunk of req) {
-      chunks.push(chunk);
+    const rawBody = await buffer(req);
+    const signature = req.headers['x-razorpay-signature'];
+    
+    // --- Reliable Validation Method ---
+    const shasum = crypto.createHmac('sha256', RAZORPAY_SECRET);
+    shasum.update(rawBody);
+    const digest = shasum.digest('hex');
+
+    if (digest !== signature) {
+      console.error('--- SIGNATURE MISMATCH --- The secret in Vercel does not match Razorpay.');
+      return res.status(403).json({ error: 'Invalid signature.' });
     }
-    const rawBody = Buffer.concat(chunks);
+    console.log("--- Signature Verified Successfully ---");
 
-    // --- Verify Razorpay signature ---
-    const signature = req.headers["x-razorpay-signature"];
-    const expectedSignature = crypto
-      .createHmac("sha256", RAZORPAY_SECRET)
-      .update(rawBody)
-      .digest("hex");
-
-    if (expectedSignature !== signature) {
-      console.error("❌ Signature mismatch!");
-      return res.status(400).json({ error: "Invalid signature" });
-    }
-
-    console.log("✅ Signature verified");
-
-    // --- Parse body safely ---
     const body = JSON.parse(rawBody.toString());
-    const eventType = body.event;
-    console.log("Event:", eventType);
+    const event = body;
+    console.log("Event Type:", event.event);
 
-    if (eventType === "payment.captured") {
-      const payment = body.payload.payment.entity;
-      const customerPhone = (payment.contact || "").replace(/\D/g, "").slice(-10);
-      const amountPaid = payment.amount / 100;
+    if (event.event === 'payment.captured') {
+        const paymentInfo = event.payload.payment.entity;
+        
+        // --- CREATE ORDER LOGIC ---
+        const notes = paymentInfo.notes;
+        const productName = notes.product_name;
+        const productId = notes.product_id;
+        const customerName = notes.customer_name;
+        const customerPhone = notes.customer_phone;
+        const customerAddress = notes.customer_address; // Get the address
+        const amountPaid = paymentInfo.amount / 100;
 
-      console.log(`Captured payment for phone ${customerPhone}, amount ${amountPaid}`);
+        if (!productId || !customerPhone || !customerAddress) {
+            console.warn("Webhook received without required notes (productId, customerPhone, or address). Ignoring.");
+            return res.status(200).json({ status: 'ignored_missing_notes' });
+        }
 
-      // --- Match Firestore order ---
-      const ordersRef = db.collection("orders");
-      const q = ordersRef
-        .where("customerPhone", "==", customerPhone)
-        .where("amount", "==", amountPaid)
-        .where("status", "==", "pending")
-        .orderBy("createdAt", "desc")
-        .limit(1);
+        const orderData = {
+            customerName,
+            customerPhone,
+            customerAddress, // Save the address
+            productName,
+            productId,
+            amount: amountPaid,
+            status: 'paid', // Order is created directly as 'paid'
+            createdAt: new Date(),
+            paymentId: paymentInfo.id,
+            paymentDetails: paymentInfo,
+        };
 
-      const snap = await q.get();
+        await db.collection('orders').add(orderData);
+        console.log(`--- SUCCESS! Created new PAID order for ${productName} by ${customerName}. ---`);
 
-      if (snap.empty) {
-        console.warn("No matching pending order found");
-      } else {
-        const doc = snap.docs[0];
-        await doc.ref.update({
-          status: "paid",
-          paymentId: payment.id,
-          paymentDetails: payment,
-        });
-        console.log(`✅ Updated order ${doc.id} to 'paid'`);
-      }
     } else {
-      console.log(`Ignoring event ${eventType}`);
+        console.log(`Webhook received for event '${event.event}', which is not 'payment.captured'. Ignoring.`);
     }
 
-    res.status(200).json({ status: "ok" });
-  } catch (err) {
-    console.error("Webhook handler error:", err);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(200).json({ status: 'ok' });
+
+  } catch (error) {
+    console.error('--- FATAL ERROR in Webhook Handler ---', error);
+    res.status(500).json({ error: 'An internal error occurred.' });
   }
 }
