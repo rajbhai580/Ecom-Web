@@ -93,14 +93,20 @@ body { font-family: 'Inter', sans-serif; background-color: var(--background-colo
 .whatsapp-btn:hover { transform: scale(1.05); }
 .whatsapp-btn i { font-size: 1.2rem; }
 .progress-tracker { display: flex; justify-content: space-between; margin: 1.5rem 0; position: relative; }
-.progress-tracker::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 3px; background-color: var(--border-color); transform: translateY(-50%); }
-.progress-tracker .step { position: relative; background-color: var(--white); padding: 0 0.5rem; color: var(--text-light); font-size: 0.8rem; font-weight: 600; text-transform: capitalize; }
-.progress-tracker .step::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 20px; height: 20px; border-radius: 50%; background-color: var(--border-color); z-index: -1; transition: background-color 0.4s; }
-.progress-tracker .step.active, .progress-tracker .step.completed { color: var(--primary-color); }
-.progress-tracker .step.active::before, .progress-tracker .step.completed::before { background-color: var(--primary-color); }
+.progress-tracker::before { content: ''; position: absolute; top: 15px; left: 0; width: 100%; height: 4px; background-color: var(--border-color); z-index: 1; }
+.step-container { display: flex; flex-direction: column; align-items: center; width: 33.3%; position: relative; }
+.step-container .step-circle { width: 30px; height: 30px; border-radius: 50%; background-color: var(--border-color); border: 3px solid var(--border-color); display: flex; justify-content: center; align-items: center; font-weight: 700; color: var(--text-light); position: relative; z-index: 2; transition: all 0.4s; }
+.step-container .step-label { margin-top: 0.5rem; font-size: 0.8rem; font-weight: 500; color: var(--text-light); text-align: center; transition: color 0.4s; }
+.step-container .step-line { position: absolute; top: 15px; left: 50%; width: 100%; height: 4px; background-color: var(--border-color); z-index: 1; transition: background-color 0.4s; }
+.step-container.completed .step-circle { background-color: var(--success-color); border-color: var(--success-color); color: var(--white); }
+.step-container.completed .step-label { color: var(--text-color); }
+.step-container.completed .step-line { background-color: var(--success-color); }
+.step-container.active .step-circle { background-color: var(--white); border-color: var(--success-color); color: var(--success-color); }
+.step-container.active .step-label { color: var(--text-color); font-weight: 700; }
 .order-status { display: inline-block; padding: 0.3rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.8rem; text-transform: capitalize; }
 .order-status.paid { background-color: var(--success-bg); color: var(--success-color); }
 .order-status.pending { background-color: var(--warning-bg); color: var(--warning-color); }
+.order-status.failed { background-color: #fee2e2; color: #b91c1c; }
 
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; }
 .modal-content { background: white; padding: 2rem; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; }
@@ -145,6 +151,11 @@ body { font-family: 'Inter', sans-serif; background-color: var(--background-colo
 #admin-nav button { padding: 0.8rem 1.2rem; border: 1px solid #ccc; background-color: #f9f9f9; cursor: pointer; border-radius: 5px; font-weight: 500; }
 #admin-nav button.active { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
 .content-view { padding: 1rem; background-color: var(--white); border-radius: 8px; box-shadow: var(--shadow); }
+.sub-nav { display: flex; gap: 0.5rem; border-bottom: 2px solid var(--border-color); margin-bottom: 1.5rem; }
+.sub-nav-btn { padding: 0.8rem 1rem; border: none; background: none; font-weight: 600; font-size: 1rem; color: var(--text-light); cursor: pointer; border-bottom: 3px solid transparent; transform: translateY(2px); }
+.sub-nav-btn.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+.sub-view { display: none; }
+.sub-view.active { display: block; }
 .list-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #eee; flex-wrap: wrap; gap: 1rem; }
 .list-item:last-child { border-bottom: none; }
 .list-item .item-actions button { margin-left: 0.5rem; padding: 0.4rem 0.8rem; cursor: pointer; border-radius: 5px; color: var(--white); font-weight: 600; }
