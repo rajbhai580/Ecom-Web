@@ -1,106 +1,92 @@
-javascript
-import { buffer } from 'micro';
-import admin from 'firebase-admin';
-import crypto from 'crypto';
+import crypto from "crypto";
+import admin from "firebase-admin";
 
-// --- Secure Initialization of Firebase Admin ---
-try {
-  if (!admin.apps.length) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-  }
-} catch (error) {
-  console.error('CRITICAL: Firebase Admin initialization failed.', error);
+// ✅ Init Firebase only once
+if (!admin.apps.length) {
+  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
 }
-
 const db = admin.firestore();
+
 const RAZORPAY_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-// Disable Vercel's default body parser to access the raw body
 export const config = {
-    api: {
-        bodyParser: false,
-    },
+  api: {
+    bodyParser: false, // disable default parser
+  },
 };
 
 export default async function handler(req, res) {
-  console.log("--- Webhook Invoked ---");
-
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).end('Method Not Allowed');
-  }
-
-  if (!RAZORPAY_SECRET) {
-      console.error("FATAL: RAZORPAY_WEBHOOK_SECRET is not set.");
-      return res.status(500).json({ error: 'Server configuration error.' });
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return res.status(405).end("Method Not Allowed");
   }
 
   try {
-    const rawBody = await buffer(req);
-    const signature = req.headers['x-razorpay-signature'];
-    
-    // --- Reliable Validation Method ---
-    const shasum = crypto.createHmac('sha256', RAZORPAY_SECRET);
-    shasum.update(rawBody);
-    const digest = shasum.digest('hex');
-
-    if (digest !== signature) {
-      console.error('--- SIGNATURE MISMATCH --- The secret in Vercel does not match Razorpay.');
-      return res.status(403).json({ error: 'Invalid signature.' });
+    // --- Get raw body buffer ---
+    const chunks = [];
+    for await (const chunk of req) {
+      chunks.push(chunk);
     }
-    console.log("--- Signature Verified Successfully ---");
+    const rawBody = Buffer.concat(chunks);
 
+    // --- Verify Razorpay signature ---
+    const signature = req.headers["x-razorpay-signature"];
+    const expectedSignature = crypto
+      .createHmac("sha256", RAZORPAY_SECRET)
+      .update(rawBody)
+      .digest("hex");
+
+    if (expectedSignature !== signature) {
+      console.error("❌ Signature mismatch!");
+      return res.status(400).json({ error: "Invalid signature" });
+    }
+
+    console.log("✅ Signature verified");
+
+    // --- Parse body safely ---
     const body = JSON.parse(rawBody.toString());
-    const event = body;
-    console.log("Event Type:", event.event);
+    const eventType = body.event;
+    console.log("Event:", eventType);
 
-    if (event.event === 'payment.captured') {
-        const paymentInfo = event.payload.payment.entity;
-        const razorpayPhone = paymentInfo.contact || '';
-        const customerPhone = razorpayPhone.replace(/\D/g, '').slice(-10);
-        const amountPaid = paymentInfo.amount / 100;
+    if (eventType === "payment.captured") {
+      const payment = body.payload.payment.entity;
+      const customerPhone = (payment.contact || "").replace(/\D/g, "").slice(-10);
+      const amountPaid = payment.amount / 100;
 
-        console.log(`Payment captured. Searching for pending order for phone: ${customerPhone} and amount: ${amountPaid}`);
+      console.log(`Captured payment for phone ${customerPhone}, amount ${amountPaid}`);
 
-        if (!customerPhone) {
-            console.warn("Webhook received for payment with no contact number. Cannot find order.");
-            return res.status(200).json({ status: 'ignored_no_contact' });
-        }
+      // --- Match Firestore order ---
+      const ordersRef = db.collection("orders");
+      const q = ordersRef
+        .where("customerPhone", "==", customerPhone)
+        .where("amount", "==", amountPaid)
+        .where("status", "==", "pending")
+        .orderBy("createdAt", "desc")
+        .limit(1);
 
-        const ordersRef = db.collection('orders');
-        const q = ordersRef
-            .where('customerPhone', '==', customerPhone)
-            .where('amount', '==', amountPaid)
-            .where('status', '==', 'pending')
-            .orderBy('createdAt', 'desc')
-            .limit(1);
+      const snap = await q.get();
 
-        const querySnapshot = await q.get();
-
-        if (querySnapshot.empty) {
-            console.warn(`--- Webhook search complete. No matching PENDING order was found. ---`);
-            return res.status(200).json({ status: 'no_matching_pending_order' });
-        }
-
-        const orderDoc = querySnapshot.docs[0];
-        await orderDoc.ref.update({
-            status: 'paid',
-            paymentId: paymentInfo.id,
-            paymentDetails: paymentInfo,
+      if (snap.empty) {
+        console.warn("No matching pending order found");
+      } else {
+        const doc = snap.docs[0];
+        await doc.ref.update({
+          status: "paid",
+          paymentId: payment.id,
+          paymentDetails: payment,
         });
-        
-        console.log(`--- SUCCESS! Updated order ${orderDoc.id} to 'paid'. ---`);
+        console.log(`✅ Updated order ${doc.id} to 'paid'`);
+      }
     } else {
-        console.log(`Webhook received for event '${event.event}', which is not 'payment.captured'. Ignoring.`);
+      console.log(`Ignoring event ${eventType}`);
     }
 
-    res.status(200).json({ status: 'ok' });
-
-  } catch (error) {
-    console.error('--- FATAL ERROR in Webhook Handler ---', error);
-    res.status(500).json({ error: 'An internal error occurred.' });
+    res.status(200).json({ status: "ok" });
+  } catch (err) {
+    console.error("Webhook handler error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 }
