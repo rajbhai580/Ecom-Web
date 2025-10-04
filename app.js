@@ -18,7 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         checkUserDetails();
     }
-    
     loadData();
     setupEventListeners();
 });
@@ -28,10 +27,19 @@ function setupEventListeners() {
         e.preventDefault();
         const name = document.getElementById('user-name-input').value.trim();
         const phone = document.getElementById('user-phone-input').value.trim();
-        const address = document.getElementById('user-address-input').value.trim();
-        if (name && phone && address) saveUserDetails(name, phone, address);
+        const selectedAvatar = document.querySelector('.avatar-option.selected').dataset.avatar;
+        if (name && phone) saveInitialUserDetails(name, phone, selectedAvatar);
     });
-    
+    document.querySelector('.avatar-chooser').addEventListener('click', (e) => {
+        if (e.target.classList.contains('avatar-option')) {
+            document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
+            e.target.classList.add('selected');
+        }
+    });
+    document.getElementById('address-confirm-form').addEventListener('submit', handleAddressConfirmation);
+    document.getElementById('cancel-purchase-btn').addEventListener('click', () => {
+        document.getElementById('address-confirm-modal').classList.add('hidden');
+    });
     document.getElementById('product-grid').addEventListener('click', handleProductGridClick);
     document.getElementById('buy-now-btn').addEventListener('click', (e) => handleBuyNow(e.target.dataset.id));
     document.querySelector('.bottom-nav').addEventListener('click', handleNavigation);
@@ -63,26 +71,30 @@ function checkUserDetails() {
 
 function greetUser(name) {
     document.getElementById('user-greeting-name').textContent = name;
+    const avatar = localStorage.getItem('customerAvatar') || 'male';
+    document.getElementById('header-avatar').src = avatarUrls[avatar];
 }
 
-function saveUserDetails(name, phone, address) {
+function saveInitialUserDetails(name, phone, avatar) {
     const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
     localStorage.setItem('customerName', name);
     localStorage.setItem('customerPhone', sanitizedPhone);
-    localStorage.setItem('customerAddress', address);
+    localStorage.setItem('customerAvatar', avatar);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
-    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, address, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
+    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
 function showProfilePage() {
     const name = localStorage.getItem('customerName');
     const phone = localStorage.getItem('customerPhone');
     const address = localStorage.getItem('customerAddress');
+    const avatar = localStorage.getItem('customerAvatar') || 'male';
     if (name && phone) {
         document.getElementById('profile-name').textContent = name;
         document.getElementById('profile-phone').textContent = phone;
-        document.getElementById('profile-address').textContent = address || 'N/A';
+        document.getElementById('profile-address').textContent = address || 'Not set';
+        document.getElementById('profile-photo').src = avatarUrls[avatar];
     }
     document.getElementById('logout-btn').addEventListener('click', () => {
         if (confirm("Are you sure you want to log out?")) {
@@ -132,6 +144,9 @@ async function loadProductsFromDB() {
     } catch (error) { console.error("Error loading products:", error); }
 }
 
+// ===================================================================
+// THIS IS THE FINAL, COMPLETE "MY ORDERS" FUNCTION WITH ALL FEATURES
+// ===================================================================
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
@@ -154,9 +169,37 @@ async function loadCustomerOrders() {
             const orderId = doc.id;
             const product = allProducts.find(p => p.id === order.productId);
             const imageUrl = product ? product.imageUrl : 'https://via.placeholder.com/150';
+
             const message = `Hello, I have a question about my order.\n\nProduct: ${order.productName}\nOrder ID: ${orderId}`;
             const whatsappUrl = `https://wa.me/${myWhatsAppNumber}?text=${encodeURIComponent(message)}`;
+
+            // Correct DD/MM/YYYY date format
+            const d = order.createdAt.toDate();
+            const orderDate = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
             
+            let deliveryDateText = '';
+            if (order.expectedDelivery) {
+                const ed = order.expectedDelivery.toDate();
+                deliveryDateText = `<p><strong>Expected Delivery:</strong> <span>${ed.getDate()}/${ed.getMonth() + 1}/${ed.getFullYear()}</span></p>`;
+            }
+
+            const statuses = ['paid', 'dispatched', 'delivered'];
+            const currentStatusIndex = statuses.indexOf(order.status);
+            
+            let progressTrackerHTML = '<div class="progress-tracker">';
+            statuses.forEach((status, index) => {
+                let statusClass = 'step';
+                let lineClass = 'step-line';
+                if (index <= currentStatusIndex) { statusClass += ' completed'; }
+                if (index < currentStatusIndex) { lineClass += ' completed'; }
+                progressTrackerHTML += `<div class="step-container"><div class="${statusClass}"><div class="step-circle">&#10003;</div><div class="step-label">${status}</div></div>${index < statuses.length - 1 ? `<div class="${lineClass}"></div>` : ''}</div>`;
+            });
+            progressTrackerHTML += '</div>';
+
+            const trackerDisplay = (order.status !== 'pending' && order.status !== 'failed') 
+                ? progressTrackerHTML 
+                : ''; // Don't show tracker for pending/failed
+
             container.innerHTML += `
                 <div class="customer-order-card">
                     <div class="order-summary-preview">
@@ -169,8 +212,10 @@ async function loadCustomerOrders() {
                     </div>
                     <div class="order-full-details">
                         <p><strong>Amount:</strong> <span>₹${order.amount.toFixed(2)}</span></p>
-                        <p><strong>Date:</strong> <span>${order.createdAt.toDate().toLocaleDateString()}</span></p>
+                        <p><strong>Date:</strong> <span>${orderDate}</span></p>
                         <p><strong>Shipping Address:</strong> <span style="text-align: right;">${order.customerAddress}</span></p>
+                        ${deliveryDateText}
+                        ${trackerDisplay}
                         <a href="${whatsappUrl}" class="whatsapp-btn" target="_blank"><i class="fab fa-whatsapp"></i> Contact Us</a>
                     </div>
                 </div>`;
@@ -180,33 +225,44 @@ async function loadCustomerOrders() {
     }
 }
 
+// ===================================================================
+// THIS IS THE FINAL "BUY NOW" WORKFLOW WITH "FAILED" ORDER LOGIC
+// ===================================================================
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
-    const customerPhone = localStorage.getItem('customerPhone');
-    let customerAddress = localStorage.getItem('customerAddress');
-    if (!customerName || !customerPhone) {
+    if (!customerName) {
         alert("Please provide your details first.");
         checkUserDetails();
         return;
     }
-    const addressConfirmModal = document.getElementById('address-confirm-modal');
-    const addressInput = document.getElementById('confirm-address-input');
-    addressInput.value = customerAddress || '';
-    addressConfirmModal.dataset.productId = productId;
-    addressConfirmModal.classList.remove('hidden');
+    const addressModal = document.getElementById('address-confirm-modal');
+    document.getElementById('address-line1-input').value = localStorage.getItem('addressLine1') || '';
+    document.getElementById('address-city-input').value = localStorage.getItem('addressCity') || '';
+    document.getElementById('address-state-input').value = localStorage.getItem('addressState') || '';
+    document.getElementById('address-pincode-input').value = localStorage.getItem('addressPincode') || '';
+    addressModal.dataset.productId = productId;
+    addressModal.classList.remove('hidden');
 }
 
 function handleAddressConfirmation(event) {
     event.preventDefault();
-    const addressConfirmModal = document.getElementById('address-confirm-modal');
-    const updatedAddress = document.getElementById('confirm-address-input').value.trim();
-    const productId = addressConfirmModal.dataset.productId;
-    if (!updatedAddress) {
-        alert("Shipping address is required.");
+    const addressModal = document.getElementById('address-confirm-modal');
+    const line1 = document.getElementById('address-line1-input').value.trim();
+    const city = document.getElementById('address-city-input').value.trim();
+    const state = document.getElementById('address-state-input').value.trim();
+    const pincode = document.getElementById('address-pincode-input').value.trim();
+    const productId = addressModal.dataset.productId;
+    if (!line1 || !city || !state || !pincode) {
+        alert("Please fill out all address fields.");
         return;
     }
-    localStorage.setItem('customerAddress', updatedAddress);
-    addressConfirmModal.classList.add('hidden');
+    const fullAddress = `${line1}, ${city}, ${state} - ${pincode}`;
+    localStorage.setItem('addressLine1', line1);
+    localStorage.setItem('addressCity', city);
+    localStorage.setItem('addressState', state);
+    localStorage.setItem('addressPincode', pincode);
+    localStorage.setItem('customerAddress', fullAddress);
+    addressModal.classList.add('hidden');
     proceedToPayment(productId);
 }
 
@@ -222,25 +278,31 @@ async function proceedToPayment(productId) {
     try {
         const sevenDaysFromNow = new Date();
         sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+        // THE FIX IS HERE: Create order with "failed" status by default.
         const orderRef = await addDoc(collection(db, "orders"), {
             customerName, customerPhone, customerAddress, 
             productName: product.name,
             productId: product.id, 
             amount: product.price, 
-            status: "pending", 
+            status: "failed", // Create as 'failed' initially
             createdAt: new Date(),
             expectedDelivery: sevenDaysFromNow
         });
-        console.log("Created PENDING order:", orderRef.id);
+        console.log("Created FAILED order:", orderRef.id);
+        
         const paymentUrl = new URL(product.paymentLink);
+        // Add our internal order ID to the notes for the webhook
+        paymentUrl.searchParams.set('notes[order_id]', orderRef.id);
         paymentUrl.searchParams.set('callback_url', `${window.location.origin}?view=orders`);
         paymentUrl.searchParams.set('callback_method', 'get');
+        
         window.location.href = paymentUrl.toString();
     } catch (error) {
-        console.error("Error creating pending order:", error);
+        console.error("Error creating failed order:", error);
         alert("Could not initiate purchase. Please try again.");
     }
 }
+// ===================================================================
 
 function handleProductGridClick(e) {
     const buyBtn = e.target.closest('.buy-now-grid-btn');
