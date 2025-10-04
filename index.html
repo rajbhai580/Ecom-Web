@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <!-- SEO Meta Tags -->
     <title>Raj Customer Service Point - Mobile Accessories & Services</title>
-    <meta name="description" content="Your one-stop shop for all mobile accessories and services. Find the best prices on chargers, cables, headphones, tempered glass, and more.">
+    <meta name="description" content="Your one-stop shop for all mobile accessories and services.">
     <meta name="keywords" content="mobile accessories, customer service point, chargers, headphones, Raj Customer Service Point">
     <meta name="google" content="notranslate">
     
@@ -18,25 +17,39 @@
 </head>
 <body>
 
-    <!-- User Details Modal with Avatar Selection -->
+    <!-- MODAL 1: Initial User Details (Name, Phone, Avatar) -->
     <div id="user-details-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3>Welcome!</h3>
-            <p>Please choose an avatar and enter your details.</p>
+            <p>Please choose an avatar and enter your details to get started.</p>
             <div class="avatar-chooser">
                 <img src="https://i.ibb.co/Vc0PFYYm/7f7badc277f30c8326a935dffe887664.jpg" alt="Male Avatar" class="avatar-option selected" data-avatar="male">
                 <img src="https://i.ibb.co/Rpqrs2y4/d0dce7b389fdf481fbb5e87272e71ccb.jpg" alt="Female Avatar" class="avatar-option" data-avatar="female">
             </div>
             <form id="user-details-form">
-                <input type="text" id="user-name-input" placeholder="Enter your name" required>
+                <input type="text" id="user-name-input" placeholder="Enter your full name" required>
                 <input type="tel" id="user-phone-input" placeholder="Enter your phone number" required>
-                <textarea id="user-address-input" placeholder="Enter your full shipping address" rows="3" required></textarea>
                 <button type="submit">Save & Continue</button>
             </form>
         </div>
     </div>
+
+    <!-- MODAL 2: Address Confirmation (Before Payment) -->
+    <div id="address-confirm-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Confirm Shipping Address</h3>
+            <p>Your order will be shipped to the address below.</p>
+            <form id="address-confirm-form">
+                <textarea id="confirm-address-input" placeholder="Enter your full shipping address, including city and pincode" rows="4" required></textarea>
+                <div class="modal-actions">
+                    <button type="button" id="cancel-purchase-btn" class="btn-secondary">Cancel</button>
+                    <button type="submit" id="confirm-purchase-btn" class="btn-primary">Confirm & Pay</button>
+                </div>
+            </form>
+        </div>
+    </div>
     
-    <!-- Search Bar (hidden by default) -->
+    <!-- Search Bar -->
     <div id="search-bar">
         <input type="text" id="search-input" placeholder="Search for products...">
         <button id="close-search-btn" class="icon-btn"><i class="fas fa-times"></i></button>
