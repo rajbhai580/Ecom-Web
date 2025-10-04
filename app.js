@@ -11,13 +11,14 @@ const avatarUrls = {
 
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('view') === 'orders') {
+    if (urlParams.has('view') && urlParams.get('view') === 'orders') {
         checkUserDetails();
         switchView('orders-view');
         loadCustomerOrders();
     } else {
         checkUserDetails();
     }
+    
     loadData();
     setupEventListeners();
 });
@@ -27,8 +28,9 @@ function setupEventListeners() {
         e.preventDefault();
         const name = document.getElementById('user-name-input').value.trim();
         const phone = document.getElementById('user-phone-input').value.trim();
+        const address = document.getElementById('user-address-input').value.trim();
         const selectedAvatar = document.querySelector('.avatar-option.selected').dataset.avatar;
-        if (name && phone) saveInitialUserDetails(name, phone, selectedAvatar);
+        if (name && phone && address) saveUserDetails(name, phone, address, selectedAvatar);
     });
     document.querySelector('.avatar-chooser').addEventListener('click', (e) => {
         if (e.target.classList.contains('avatar-option')) {
@@ -75,14 +77,15 @@ function greetUser(name) {
     document.getElementById('header-avatar').src = avatarUrls[avatar];
 }
 
-function saveInitialUserDetails(name, phone, avatar) {
+function saveUserDetails(name, phone, address, avatar) {
     const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
     localStorage.setItem('customerName', name);
     localStorage.setItem('customerPhone', sanitizedPhone);
+    localStorage.setItem('customerAddress', address);
     localStorage.setItem('customerAvatar', avatar);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
-    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
+    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, address, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
 function showProfilePage() {
@@ -144,14 +147,10 @@ async function loadProductsFromDB() {
     } catch (error) { console.error("Error loading products:", error); }
 }
 
-// ===================================================================
-// THIS IS THE FINAL, COMPLETE "MY ORDERS" FUNCTION WITH ALL FEATURES
-// ===================================================================
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
     const myWhatsAppNumber = "918972766578";
-
     if (!customerPhone) {
         container.innerHTML = "<p>Could not find your user details. Please log out and log back in.</p>";
         return;
@@ -162,30 +161,23 @@ async function loadCustomerOrders() {
         const q = query(ordersRef, where("customerPhone", "==", customerPhone), orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
         if (querySnapshot.empty) { container.innerHTML = "<p>You haven't placed any orders yet.</p>"; return; }
-        
         container.innerHTML = '';
         querySnapshot.forEach(doc => {
             const order = doc.data();
             const orderId = doc.id;
             const product = allProducts.find(p => p.id === order.productId);
             const imageUrl = product ? product.imageUrl : 'https://via.placeholder.com/150';
-
             const message = `Hello, I have a question about my order.\n\nProduct: ${order.productName}\nOrder ID: ${orderId}`;
             const whatsappUrl = `https://wa.me/${myWhatsAppNumber}?text=${encodeURIComponent(message)}`;
-
-            // Correct DD/MM/YYYY date format
             const d = order.createdAt.toDate();
             const orderDate = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
-            
             let deliveryDateText = '';
-            if (order.expectedDelivery) {
+            if (order.expectedDelivery && order.status !== 'failed' && order.status !== 'pending') {
                 const ed = order.expectedDelivery.toDate();
                 deliveryDateText = `<p><strong>Expected Delivery:</strong> <span>${ed.getDate()}/${ed.getMonth() + 1}/${ed.getFullYear()}</span></p>`;
             }
-
             const statuses = ['paid', 'dispatched', 'delivered'];
             const currentStatusIndex = statuses.indexOf(order.status);
-            
             let progressTrackerHTML = '<div class="progress-tracker">';
             statuses.forEach((status, index) => {
                 let statusClass = 'step';
@@ -195,11 +187,7 @@ async function loadCustomerOrders() {
                 progressTrackerHTML += `<div class="step-container"><div class="${statusClass}"><div class="step-circle">&#10003;</div><div class="step-label">${status}</div></div>${index < statuses.length - 1 ? `<div class="${lineClass}"></div>` : ''}</div>`;
             });
             progressTrackerHTML += '</div>';
-
-            const trackerDisplay = (order.status !== 'pending' && order.status !== 'failed') 
-                ? progressTrackerHTML 
-                : ''; // Don't show tracker for pending/failed
-
+            const trackerDisplay = (order.status !== 'pending' && order.status !== 'failed') ? progressTrackerHTML : '';
             container.innerHTML += `
                 <div class="customer-order-card">
                     <div class="order-summary-preview">
@@ -220,14 +208,9 @@ async function loadCustomerOrders() {
                     </div>
                 </div>`;
         });
-    } catch (error) { 
-        console.error("Error loading customer-specific orders:", error);
-    }
+    } catch (error) { console.error("Error loading customer-specific orders:", error); }
 }
 
-// ===================================================================
-// THIS IS THE FINAL "BUY NOW" WORKFLOW WITH "FAILED" ORDER LOGIC
-// ===================================================================
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     if (!customerName) {
@@ -278,31 +261,25 @@ async function proceedToPayment(productId) {
     try {
         const sevenDaysFromNow = new Date();
         sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
-        // THE FIX IS HERE: Create order with "failed" status by default.
         const orderRef = await addDoc(collection(db, "orders"), {
             customerName, customerPhone, customerAddress, 
             productName: product.name,
             productId: product.id, 
             amount: product.price, 
-            status: "failed", // Create as 'failed' initially
+            status: "pending", 
             createdAt: new Date(),
             expectedDelivery: sevenDaysFromNow
         });
-        console.log("Created FAILED order:", orderRef.id);
-        
+        console.log("Created PENDING order:", orderRef.id);
         const paymentUrl = new URL(product.paymentLink);
-        // Add our internal order ID to the notes for the webhook
-        paymentUrl.searchParams.set('notes[order_id]', orderRef.id);
         paymentUrl.searchParams.set('callback_url', `${window.location.origin}?view=orders`);
         paymentUrl.searchParams.set('callback_method', 'get');
-        
         window.location.href = paymentUrl.toString();
     } catch (error) {
-        console.error("Error creating failed order:", error);
+        console.error("Error creating pending order:", error);
         alert("Could not initiate purchase. Please try again.");
     }
 }
-// ===================================================================
 
 function handleProductGridClick(e) {
     const buyBtn = e.target.closest('.buy-now-grid-btn');
