@@ -10,6 +10,7 @@ const avatarUrls = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    // --- App Initialization ---
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('view') === 'orders') {
         checkUserDetails();
@@ -18,24 +19,23 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         checkUserDetails();
     }
-    
     loadData();
     setupEventListeners();
 });
 
 function setupEventListeners() {
-    // Corrected event listener for the initial user details form
+    // ===================================================================
+    // THIS IS THE FINAL, CORRECTED EVENT LISTENER FOR THE FIRST MODAL
+    // ===================================================================
     document.getElementById('user-details-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const name = document.getElementById('user-name-input').value.trim();
         const phone = document.getElementById('user-phone-input').value.trim();
-        const address = document.getElementById('user-address-input').value.trim();
+        // **THE FIX IS HERE: The address line is REMOVED.**
         const selectedAvatar = document.querySelector('.avatar-option.selected').dataset.avatar;
 
-        if (name && phone && address) {
-            saveUserDetails(name, phone, address, selectedAvatar);
-        } else {
-            alert("Please fill out all fields.");
+        if (name && phone) {
+            saveInitialUserDetails(name, phone, selectedAvatar);
         }
     });
 
@@ -46,11 +46,14 @@ function setupEventListeners() {
         }
     });
 
+    // Event listener for the second (Address) modal
     document.getElementById('address-confirm-form').addEventListener('submit', handleAddressConfirmation);
     document.getElementById('cancel-purchase-btn').addEventListener('click', () => {
         document.getElementById('address-confirm-modal').classList.add('hidden');
     });
+    // ===================================================================
 
+    // --- Other event listeners ---
     document.getElementById('product-grid').addEventListener('click', handleProductGridClick);
     document.getElementById('buy-now-btn').addEventListener('click', (e) => handleBuyNow(e.target.dataset.id));
     document.querySelector('.bottom-nav').addEventListener('click', handleNavigation);
@@ -80,26 +83,26 @@ function greetUser(name) {
     document.getElementById('header-avatar').src = avatarUrls[avatar];
 }
 
-function saveUserDetails(name, phone, address, avatar) {
+function saveInitialUserDetails(name, phone, avatar) {
     const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
     localStorage.setItem('customerName', name);
     localStorage.setItem('customerPhone', sanitizedPhone);
-    localStorage.setItem('customerAddress', address);
     localStorage.setItem('customerAvatar', avatar);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
-    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, address, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
+    // Save to DB for admin panel viewing, but no address yet
+    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
 function showProfilePage() {
     const name = localStorage.getItem('customerName');
     const phone = localStorage.getItem('customerPhone');
-    const address = localStorage.getItem('customerAddress');
+    const address = localStorage.getItem('customerAddress'); // Address is now optional at this stage
     const avatar = localStorage.getItem('customerAvatar') || 'male';
     if (name && phone) {
         document.getElementById('profile-name').textContent = name;
         document.getElementById('profile-phone').textContent = phone;
-        document.getElementById('profile-address').textContent = address || 'Not set';
+        document.getElementById('profile-address').textContent = address || 'Not set'; // Show "Not set" if empty
         document.getElementById('profile-photo').src = avatarUrls[avatar];
     }
     document.getElementById('logout-btn').addEventListener('click', () => {
