@@ -204,17 +204,36 @@ function handleBuyNow(productId) {
     addressModal.classList.remove('hidden');
 }
 
+// In app.js, replace the handleAddressConfirmation function
+
 function handleAddressConfirmation(event) {
     event.preventDefault();
     const addressModal = document.getElementById('address-confirm-modal');
-    const updatedAddress = document.getElementById('confirm-address-input').value.trim();
+    
+    // Read values from all the new input fields
+    const line1 = document.getElementById('address-line1-input').value.trim();
+    const city = document.getElementById('address-city-input').value.trim();
+    const state = document.getElementById('address-state-input').value.trim();
+    const pincode = document.getElementById('address-pincode-input').value.trim();
     const productId = addressModal.dataset.productId;
-    if (!updatedAddress) {
-        alert("Shipping address is required.");
+
+    if (!line1 || !city || !state || !pincode) {
+        alert("Please fill out all address fields.");
         return;
     }
-    localStorage.setItem('customerAddress', updatedAddress);
+
+    // Combine into a single, nicely formatted address string
+    const fullAddress = `${line1}, ${city}, ${state} - ${pincode}`;
+
+    // Save the individual fields AND the full address to localStorage
+    localStorage.setItem('addressLine1', line1);
+    localStorage.setItem('addressCity', city);
+    localStorage.setItem('addressState', state);
+    localStorage.setItem('addressPincode', pincode);
+    localStorage.setItem('customerAddress', fullAddress);
+    
     addressModal.classList.add('hidden');
+    
     proceedToPayment(productId);
 }
 
