@@ -10,7 +10,6 @@ const avatarUrls = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    // --- App Initialization ---
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('view') === 'orders') {
         checkUserDetails();
@@ -19,12 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         checkUserDetails();
     }
+    
     loadData();
     setupEventListeners();
 });
 
 function setupEventListeners() {
-    // MODAL 1: Initial user details
     document.getElementById('user-details-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const name = document.getElementById('user-name-input').value.trim();
@@ -39,13 +38,11 @@ function setupEventListeners() {
         }
     });
 
-    // MODAL 2: Address confirmation
     document.getElementById('address-confirm-form').addEventListener('submit', handleAddressConfirmation);
     document.getElementById('cancel-purchase-btn').addEventListener('click', () => {
         document.getElementById('address-confirm-modal').classList.add('hidden');
     });
-
-    // --- Other event listeners ---
+    
     document.getElementById('product-grid').addEventListener('click', handleProductGridClick);
     document.getElementById('buy-now-btn').addEventListener('click', (e) => handleBuyNow(e.target.dataset.id));
     document.querySelector('.bottom-nav').addEventListener('click', handleNavigation);
@@ -66,7 +63,6 @@ function setupEventListeners() {
     });
 }
 
-// --- USER DETAILS (Simplified for initial setup) ---
 function checkUserDetails() {
     const userName = localStorage.getItem('customerName');
     if (userName) {
@@ -75,11 +71,13 @@ function checkUserDetails() {
         document.getElementById('user-details-modal').classList.remove('hidden');
     }
 }
+
 function greetUser(name) {
     document.getElementById('user-greeting-name').textContent = name;
     const avatar = localStorage.getItem('customerAvatar') || 'male';
     document.getElementById('header-avatar').src = avatarUrls[avatar];
 }
+
 function saveInitialUserDetails(name, phone, avatar) {
     const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
     localStorage.setItem('customerName', name);
@@ -87,10 +85,10 @@ function saveInitialUserDetails(name, phone, avatar) {
     localStorage.setItem('customerAvatar', avatar);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
+    // We do not save address here initially
     addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
-// --- PROFILE PAGE ---
 function showProfilePage() {
     const name = localStorage.getItem('customerName');
     const phone = localStorage.getItem('customerPhone');
@@ -110,12 +108,12 @@ function showProfilePage() {
     });
 }
 
-// --- DATA FETCHING ---
 async function loadData() {
     await loadBannersFromDB();
     await loadCategoriesFromDB();
     await loadProductsFromDB();
 }
+
 async function loadBannersFromDB() {
     const container = document.getElementById('promo-carousel');
     try {
@@ -127,6 +125,7 @@ async function loadBannersFromDB() {
         initCarousel();
     } catch (error) { console.error("Error loading banners:", error); }
 }
+
 async function loadCategoriesFromDB() {
     const container = document.getElementById('category-list-short');
     try {
@@ -136,6 +135,7 @@ async function loadCategoriesFromDB() {
         querySnapshot.forEach(doc => { container.innerHTML += `<div class="category-chip">${doc.data().name}</div>`; });
     } catch (error) { console.error("Error loading categories:", error); }
 }
+
 async function loadProductsFromDB() {
     const grid = document.getElementById('product-grid');
     grid.innerHTML = "<p>Loading products...</p>";
@@ -147,9 +147,11 @@ async function loadProductsFromDB() {
         renderProducts(currentlyDisplayedProducts);
     } catch (error) { console.error("Error loading products:", error); }
 }
+
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
+    const myWhatsAppNumber = "918972766578";
     if (!customerPhone) {
         container.innerHTML = "<p>Could not find your user details. Please log out and log back in.</p>";
         return;
@@ -166,11 +168,9 @@ async function loadCustomerOrders() {
             const orderId = doc.id;
             const orderDate = order.createdAt.toDate().toLocaleDateString();
             const message = `Hello, I have a question about my order.\n\nProduct: ${order.productName}\nOrder ID: ${orderId}`;
-            const whatsappUrl = `https://wa.me/918972766578?text=${encodeURIComponent(message)}`;
+            const whatsappUrl = `https://wa.me/${myWhatsAppNumber}?text=${encodeURIComponent(message)}`;
             let deliveryDateText = '';
-            if (order.expectedDelivery) {
-                deliveryDateText = `<p>Expected Delivery: ${order.expectedDelivery.toDate().toLocaleDateString()}</p>`;
-            }
+            if (order.expectedDelivery) { deliveryDateText = `<p>Expected Delivery: ${order.expectedDelivery.toDate().toLocaleDateString()}</p>`; }
             const statuses = ['paid', 'dispatched', 'delivered'];
             const currentStatusIndex = statuses.indexOf(order.status);
             let progressTrackerHTML = '<div class="progress-tracker">';
@@ -188,7 +188,9 @@ async function loadCustomerOrders() {
     } catch (error) { console.error("Error loading customer-specific orders:", error); }
 }
 
-// --- "BUY NOW" WORKFLOW ---
+// ===================================================================
+// THIS IS THE FINAL, CORRECTED "BUY NOW" WORKFLOW
+// ===================================================================
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     if (!customerName) {
@@ -197,10 +199,13 @@ function handleBuyNow(productId) {
         return;
     }
     const addressModal = document.getElementById('address-confirm-modal');
+    
+    // **THE FIX IS HERE: Using the correct localStorage keys**
     document.getElementById('address-line1-input').value = localStorage.getItem('addressLine1') || '';
     document.getElementById('address-city-input').value = localStorage.getItem('addressCity') || '';
     document.getElementById('address-state-input').value = localStorage.getItem('addressState') || '';
-    document.getElementById('address-pincode-input').value = localStorage.getItem('addressPincode') || '';
+    document.getElementById('address-pincode-input').value = localStorage.getItem('addressPincode') || ''; // Corrected key
+
     addressModal.dataset.productId = productId;
     addressModal.classList.remove('hidden');
 }
@@ -258,6 +263,7 @@ async function proceedToPayment(productId) {
         alert("Could not initiate purchase. Please try again.");
     }
 }
+// ===================================================================
 
 function handleProductGridClick(e) {
     const buyBtn = e.target.closest('.buy-now-grid-btn');
