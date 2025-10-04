@@ -1,3 +1,4 @@
+html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,9 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <title>Raj Customer Service Point - Mobile Accessories & Services</title>
-    <meta name="description" content="Your one-stop shop for all mobile accessories and services.">
+    <meta name="description" content="Your one-stop shop for all mobile accessories and services. Find the best prices on chargers, cables, headphones, tempered glass, and more.">
     <meta name="keywords" content="mobile accessories, customer service point, chargers, headphones, Raj Customer Service Point">
-    <meta name="google" content="notranslate">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -17,76 +17,25 @@
 </head>
 <body>
 
-    <!-- MODAL 1: Initial User Details (Name, Phone, Avatar) -->
+    <!-- User Details Modal with Avatar Selection -->
     <div id="user-details-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3>Welcome!</h3>
-            <p>Please choose an avatar and enter your details to get started.</p>
+            <p>Please choose an avatar and enter your details.</p>
             <div class="avatar-chooser">
                 <img src="https://i.ibb.co/Vc0PFYYm/7f7badc277f30c8326a935dffe887664.jpg" alt="Male Avatar" class="avatar-option selected" data-avatar="male">
                 <img src="https://i.ibb.co/Rpqrs2y4/d0dce7b389fdf481fbb5e87272e71ccb.jpg" alt="Female Avatar" class="avatar-option" data-avatar="female">
             </div>
             <form id="user-details-form">
-                <input type="text" id="user-name-input" placeholder="Enter your full name" required>
+                <input type="text" id="user-name-input" placeholder="Enter your name" required>
                 <input type="tel" id="user-phone-input" placeholder="Enter your phone number" required>
+                <textarea id="user-address-input" placeholder="Enter your full shipping address" rows="3" required></textarea>
                 <button type="submit">Save & Continue</button>
             </form>
         </div>
     </div>
-
-    <!-- MODAL 2: Address Confirmation (Professional Form) -->
-    <div id="address-confirm-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h3>Confirm Shipping Address</h3>
-            <p>Your order will be shipped to the address below.</p>
-            <form id="address-confirm-form" class="address-form">
-                <input type="text" id="address-line1-input" placeholder="House No., Building, Street, Area" required>
-                <input type="text" id="address-city-input" placeholder="City / Town / District" required>
-                
-                <div class="form-row">
-                    <select id="address-state-input" required>
-                        <option value="" disabled selected>Select State</option>
-                        <option value="Andhra Pradesh">Andhra Pradesh</option>
-                        <option value="Arunachal Pradesh">Arunachal Pradesh</option>
-                        <option value="Assam">Assam</option>
-                        <option value="Bihar">Bihar</option>
-                        <option value="Chhattisgarh">Chhattisgarh</option>
-                        <option value="Goa">Goa</option>
-                        <option value="Gujarat">Gujarat</option>
-                        <option value="Haryana">Haryana</option>
-                        <option value="Himachal Pradesh">Himachal Pradesh</option>
-                        <option value="Jharkhand">Jharkhand</option>
-                        <option value="Karnataka">Karnataka</option>
-                        <option value="Kerala">Kerala</option>
-                        <option value="Madhya Pradesh">Madhya Pradesh</option>
-                        <option value="Maharashtra">Maharashtra</option>
-                        <option value="Manipur">Manipur</option>
-                        <option value="Meghalaya">Meghalaya</option>
-                        <option value="Mizoram">Mizoram</option>
-                        <option value="Nagaland">Nagaland</option>
-                        <option value="Odisha">Odisha</option>
-                        <option value="Punjab">Punjab</option>
-                        <option value="Rajasthan">Rajasthan</option>
-                        <option value="Sikkim">Sikkim</option>
-                        <option value="Tamil Nadu">Tamil Nadu</option>
-                        <option value="Telangana">Telangana</option>
-                        <option value="Tripura">Tripura</option>
-                        <option value="Uttar Pradesh">Uttar Pradesh</option>
-                        <option value="Uttarakhand">Uttarakhand</option>
-                        <option value="West Bengal">West Bengal</option>
-                    </select>
-                    <input type="number" id="address-pincode-input" placeholder="Pincode" required>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" id="cancel-purchase-btn" class="btn-secondary">Cancel</button>
-                    <button type="submit" id="confirm-purchase-btn" class="btn-primary">Confirm & Pay</button>
-                </div>
-            </form>
-        </div>
-    </div>
     
-    <!-- Search Bar -->
+    <!-- Search Bar (hidden by default) -->
     <div id="search-bar">
         <input type="text" id="search-input" placeholder="Search for products...">
         <button id="close-search-btn" class="icon-btn"><i class="fas fa-times"></i></button>
@@ -97,9 +46,13 @@
         <div id="home-view" class="view active">
             <header class="app-header">
                 <div class="header-welcome">
-                    <p>Welcome back,</p>
-                    <h1 id="user-greeting-name">Guest</h1>
+                    <!-- SEO Improvement: Main title is now H1 -->
+                    <h1>Raj Customer Service Point</h1>
+                    <p>Welcome back, <span id="user-greeting-name">Guest</span></p>
                 </div>
+                <!-- ========================================================== -->
+                <!-- THIS IS THE FIX. The header-actions div was missing the avatar img -->
+                <!-- ========================================================== -->
                 <div class="header-actions">
                     <img id="header-avatar" class="header-avatar" src="https://i.ibb.co/Vc0PFYYm/7f7badc277f30c8326a935dffe887664.jpg" alt="Avatar">
                     <button id="search-icon-btn" class="icon-btn"><i class="fas fa-search"></i></button>
