@@ -126,9 +126,7 @@ async function loadProductsFromDB() {
     } catch (error) { console.error("Error loading products:", error); }
 }
 
-// ===================================================================
-// THIS IS THE FINAL, CORRECTED "MY ORDERS" FUNCTION
-// ===================================================================
+// In app.js
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
@@ -151,31 +149,32 @@ async function loadCustomerOrders() {
             const orderId = doc.id;
             const orderDate = order.createdAt.toDate().toLocaleDateString();
             const message = `Hello, I have a question about my order.\n\nProduct: ${order.productName}\nOrder ID: ${orderId}`;
-            const whatsappUrl = `https.wa.me/${myWhatsAppNumber}?text=${encodeURIComponent(message)}`;
+            const whatsappUrl = `https://wa.me/${myWhatsAppNumber}?text=${encodeURIComponent(message)}`;
 
-            // --- PROGRESS TRACKER LOGIC ---
+            // --- FINAL, CORRECTED PROGRESS TRACKER LOGIC ---
             const statuses = ['paid', 'dispatched', 'delivered'];
             const currentStatusIndex = statuses.indexOf(order.status);
             
             let progressTrackerHTML = '<div class="progress-tracker">';
             statuses.forEach((status, index) => {
                 let statusClass = 'step-container';
-                let stepContent = `&#10003;`; // Default to checkmark
+                let stepContent = index + 1;
                 
-                // **THE FIX IS HERE:** A simpler, more direct logic check.
                 if (index <= currentStatusIndex) {
                     statusClass += ' completed';
+                    stepContent = '&#10003;'; // Checkmark
                 }
                 
                 if (index === currentStatusIndex) {
                     statusClass += ' active';
                 }
 
-                // If a step is not completed, show the number instead of a checkmark
+                // If a step is in the future, show the number instead of a checkmark
                 if (index > currentStatusIndex) {
                     stepContent = index + 1;
                 }
 
+                // The line should connect this step to the next one
                 const lineHTML = index < statuses.length - 1 ? '<div class="step-line"></div>' : '';
 
                 progressTrackerHTML += `
