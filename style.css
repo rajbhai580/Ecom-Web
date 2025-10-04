@@ -84,31 +84,91 @@ body { font-family: 'Inter', sans-serif; background-color: var(--background-colo
 .product-description { margin-top: 1.5rem; color: var(--text-light); line-height: 1.7; }
 .detail-image-carousel { margin-bottom: 1.5rem; }
 
-.customer-order-card { background-color: var(--white); padding: 1.25rem; border-radius: 16px; margin-bottom: 1rem; border: 1px solid var(--border-color); }
-.order-card-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
-.order-card-header h4 { font-size: 1.1rem; font-weight: 600; }
-.order-card-toggle { transition: transform 0.3s; }
-.order-card-details { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-in-out, margin-top 0.4s ease-in-out; }
-.customer-order-card.expanded .order-card-details { max-height: 500px; margin-top: 1rem; }
-.customer-order-card.expanded .order-card-toggle { transform: rotate(180deg); }
-.customer-order-card p { color: var(--text-light); margin-bottom: 0.3rem; }
-.whatsapp-btn { display: inline-flex; align-items: center; gap: 8px; margin-top: 1rem; padding: 0.6rem 1.2rem; background-color: #25D366; color: white; text-decoration: none; font-weight: 600; border-radius: 50px; transition: transform 0.2s; }
-.whatsapp-btn:hover { transform: scale(1.05); }
-.whatsapp-btn i { font-size: 1.2rem; }
-.progress-tracker { display: flex; align-items: center; justify-content: space-between; margin: 1.5rem 0; padding: 0 0.5rem; }
-.step-container { display: flex; align-items: center; flex: 1; }
-.step-container:last-child { flex: 0; }
-.step { display: flex; flex-direction: column; align-items: center; }
-.step-circle { width: 24px; height: 24px; border-radius: 50%; background-color: var(--white); border: 2px solid var(--border-color); display: flex; justify-content: center; align-items: center; font-weight: 700; color: var(--text-light); transition: all 0.4s ease; }
-.step-label { margin-top: 0.5rem; font-size: 0.8rem; font-weight: 500; color: var(--text-light); white-space: nowrap; transition: color 0.4s; text-transform: capitalize; }
-.step-line { flex-grow: 1; height: 3px; background-color: var(--border-color); margin: 0 0.5rem; margin-bottom: 24px; transition: background-color 0.4s; }
-.step.completed .step-circle { background-color: var(--success-color); border-color: var(--success-color); color: var(--white); }
-.step.completed .step-label { color: var(--text-color); font-weight: 600; }
-.step-container.completed .step-line { background-color: var(--success-color); }
-.order-status { display: inline-block; padding: 0.3rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.8rem; text-transform: capitalize; }
+/* 
+============================================
+--- FINAL, CORRECTED "MY ORDERS" PAGE STYLES ---
+============================================
+*/
+.customer-order-card {
+    background-color: var(--white);
+    border-radius: 16px;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+}
+.customer-order-card:hover {
+    box-shadow: var(--shadow);
+}
+.order-summary-preview {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    cursor: pointer;
+    gap: 1rem;
+}
+.order-summary-preview .product-image {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+.order-summary-preview .info {
+    flex-grow: 1;
+    overflow: hidden;
+}
+.order-summary-preview .info h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.order-summary-preview .info p {
+    font-size: 0.8rem;
+    color: var(--text-light);
+}
+.order-full-details {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out, padding 0.4s ease-in-out;
+    padding: 0 1.25rem;
+    border-top: 1px solid transparent;
+}
+.customer-order-card.expanded .order-full-details {
+    max-height: 500px;
+    padding: 1.5rem 1.25rem;
+    border-top: 1px solid var(--border-color);
+}
+.order-full-details p {
+    color: var(--text-light);
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+}
+.order-full-details p strong {
+    color: var(--text-color);
+    font-weight: 500;
+}
+.order-status {
+    display: inline-block;
+    padding: 0.4rem 0.8rem;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: capitalize;
+    white-space: nowrap;
+}
 .order-status.paid { background-color: var(--success-bg); color: var(--success-color); }
 .order-status.pending { background-color: var(--warning-bg); color: var(--warning-color); }
 .order-status.failed { background-color: #fee2e2; color: #b91c1c; }
+
+.whatsapp-btn { display: inline-flex; align-items: center; gap: 8px; margin-top: 1rem; padding: 0.6rem 1.2rem; background-color: #25D366; color: white; text-decoration: none; font-weight: 600; border-radius: 50px; transition: transform 0.2s; }
+.whatsapp-btn:hover { transform: scale(1.05); }
+.whatsapp-btn i { font-size: 1.2rem; }
 
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; }
 .modal-content { background: white; padding: 2rem; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; }
@@ -116,7 +176,7 @@ body { font-family: 'Inter', sans-serif; background-color: var(--background-colo
 .avatar-option { width: 80px; height: 80px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: border-color 0.2s; object-fit: cover; }
 .avatar-option.selected { border-color: var(--primary-color); }
 #user-details-form { display: flex; flex-direction: column; gap: 1rem; }
-#user-details-form input, #user-details-form button, #user-details-form textarea { padding: 1rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 1rem; font-family: 'Inter', sans-serif; }
+#user-details-form input { padding: 1rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 1rem; font-family: 'Inter', sans-serif; }
 #user-details-form button { background-color: var(--primary-color); color: white; border: none; font-weight: 600; }
 .address-form { display: flex; flex-direction: column; gap: 1rem; text-align: left; margin-top: 1.5rem; }
 .address-form input, .address-form select { width: 100%; padding: 0.8rem; font-size: 1rem; font-family: 'Inter', sans-serif; border: 1px solid var(--border-color); border-radius: 8px; }
