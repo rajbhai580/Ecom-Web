@@ -29,15 +29,9 @@ function setupEventListeners() {
         const name = document.getElementById('user-name-input').value.trim();
         const phone = document.getElementById('user-phone-input').value.trim();
         const address = document.getElementById('user-address-input').value.trim();
-        const selectedAvatar = document.querySelector('.avatar-option.selected').dataset.avatar;
-        if (name && phone && address) saveUserDetails(name, phone, address, selectedAvatar);
+        if (name && phone && address) saveUserDetails(name, phone, address);
     });
-    document.querySelector('.avatar-chooser').addEventListener('click', (e) => {
-        if (e.target.classList.contains('avatar-option')) {
-            document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
-            e.target.classList.add('selected');
-        }
-    });
+    
     document.getElementById('product-grid').addEventListener('click', handleProductGridClick);
     document.getElementById('buy-now-btn').addEventListener('click', (e) => handleBuyNow(e.target.dataset.id));
     document.querySelector('.bottom-nav').addEventListener('click', handleNavigation);
@@ -63,31 +57,26 @@ function checkUserDetails() {
 
 function greetUser(name) {
     document.getElementById('user-greeting-name').textContent = name;
-    const avatar = localStorage.getItem('customerAvatar') || 'male';
-    document.getElementById('header-avatar').src = avatarUrls[avatar];
 }
 
-function saveUserDetails(name, phone, address, avatar) {
+function saveUserDetails(name, phone, address) {
     const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
     localStorage.setItem('customerName', name);
     localStorage.setItem('customerPhone', sanitizedPhone);
     localStorage.setItem('customerAddress', address);
-    localStorage.setItem('customerAvatar', avatar);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
-    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, address, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
+    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, address, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
 function showProfilePage() {
     const name = localStorage.getItem('customerName');
     const phone = localStorage.getItem('customerPhone');
     const address = localStorage.getItem('customerAddress');
-    const avatar = localStorage.getItem('customerAvatar') || 'male';
     if (name && phone) {
         document.getElementById('profile-name').textContent = name;
         document.getElementById('profile-phone').textContent = phone;
         document.getElementById('profile-address').textContent = address || 'N/A';
-        document.getElementById('profile-photo').src = avatarUrls[avatar];
     }
     document.getElementById('logout-btn').addEventListener('click', () => {
         if (confirm("Are you sure you want to log out?")) {
@@ -137,6 +126,9 @@ async function loadProductsFromDB() {
     } catch (error) { console.error("Error loading products:", error); }
 }
 
+// ===================================================================
+// THIS IS THE FINAL, CORRECTED "MY ORDERS" FUNCTION
+// ===================================================================
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
@@ -159,27 +151,42 @@ async function loadCustomerOrders() {
             const orderId = doc.id;
             const orderDate = order.createdAt.toDate().toLocaleDateString();
             const message = `Hello, I have a question about my order.\n\nProduct: ${order.productName}\nOrder ID: ${orderId}`;
-            const whatsappUrl = `https://wa.me/${myWhatsAppNumber}?text=${encodeURIComponent(message)}`;
+            const whatsappUrl = `https.wa.me/${myWhatsAppNumber}?text=${encodeURIComponent(message)}`;
 
+            // --- PROGRESS TRACKER LOGIC ---
             const statuses = ['paid', 'dispatched', 'delivered'];
             const currentStatusIndex = statuses.indexOf(order.status);
             
             let progressTrackerHTML = '<div class="progress-tracker">';
             statuses.forEach((status, index) => {
                 let statusClass = 'step-container';
-                let stepContent = index + 1;
+                let stepContent = `&#10003;`; // Default to checkmark
+                
+                // **THE FIX IS HERE:** A simpler, more direct logic check.
                 if (index <= currentStatusIndex) {
                     statusClass += ' completed';
-                    stepContent = '&#10003;';
                 }
+                
                 if (index === currentStatusIndex) {
                     statusClass += ' active';
                 }
+
+                // If a step is not completed, show the number instead of a checkmark
+                if (index > currentStatusIndex) {
+                    stepContent = index + 1;
+                }
+
                 const lineHTML = index < statuses.length - 1 ? '<div class="step-line"></div>' : '';
-                progressTrackerHTML += `<div class="${statusClass}"><div class="step-circle">${stepContent}</div><div class="step-label">${status}</div>${lineHTML}</div>`;
+
+                progressTrackerHTML += `
+                    <div class="${statusClass}">
+                        <div class="step-circle">${stepContent}</div>
+                        <div class="step-label">${status}</div>
+                        ${lineHTML}
+                    </div>`;
             });
             progressTrackerHTML += '</div>';
-
+            
             const trackerDisplay = (order.status !== 'pending' && order.status !== 'failed') 
                 ? progressTrackerHTML 
                 : `<p>Status: <span class="order-status ${order.status}">${order.status}</span></p>`;
@@ -191,7 +198,9 @@ async function loadCustomerOrders() {
                     <p>Date: ${orderDate}</p>
                     <p>Order ID: ${orderId}</p>
                     ${trackerDisplay}
-                    <a href="${whatsappUrl}" class="whatsapp-btn" target="_blank"><i class="fab fa-whatsapp"></i> Contact Us</a>
+                    <a href="${whatsappUrl}" class="whatsapp-btn" target="_blank">
+                        <i class="fab fa-whatsapp"></i> Contact Us
+                    </a>
                 </div>`;
         });
     } catch (error) { 
@@ -204,7 +213,6 @@ function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     const customerPhone = localStorage.getItem('customerPhone');
     const customerAddress = localStorage.getItem('customerAddress');
-
     if (!customerName || !customerPhone || !customerAddress) {
         alert("Please provide your full details first, including your address.");
         checkUserDetails();
