@@ -10,6 +10,7 @@ const avatarUrls = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    // --- App Initialization ---
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('view') === 'orders') {
         checkUserDetails();
@@ -18,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         checkUserDetails();
     }
-    
     loadData();
     setupEventListeners();
 });
@@ -58,8 +58,15 @@ function setupEventListeners() {
     document.getElementById('search-icon-btn').addEventListener('click', toggleSearchBar);
     document.getElementById('search-input').addEventListener('input', handleSearch);
     document.getElementById('close-search-btn').addEventListener('click', toggleSearchBar);
+    document.getElementById('customer-orders-list').addEventListener('click', (e) => {
+        const header = e.target.closest('.order-card-header');
+        if (header) {
+            header.parentElement.classList.toggle('expanded');
+        }
+    });
 }
 
+// --- USER DETAILS (Simplified for initial setup) ---
 function checkUserDetails() {
     const userName = localStorage.getItem('customerName');
     if (userName) {
@@ -68,13 +75,11 @@ function checkUserDetails() {
         document.getElementById('user-details-modal').classList.remove('hidden');
     }
 }
-
 function greetUser(name) {
     document.getElementById('user-greeting-name').textContent = name;
     const avatar = localStorage.getItem('customerAvatar') || 'male';
     document.getElementById('header-avatar').src = avatarUrls[avatar];
 }
-
 function saveInitialUserDetails(name, phone, avatar) {
     const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
     localStorage.setItem('customerName', name);
@@ -85,6 +90,7 @@ function saveInitialUserDetails(name, phone, avatar) {
     addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
+// --- PROFILE PAGE ---
 function showProfilePage() {
     const name = localStorage.getItem('customerName');
     const phone = localStorage.getItem('customerPhone');
@@ -104,12 +110,12 @@ function showProfilePage() {
     });
 }
 
+// --- DATA FETCHING ---
 async function loadData() {
     await loadBannersFromDB();
     await loadCategoriesFromDB();
     await loadProductsFromDB();
 }
-
 async function loadBannersFromDB() {
     const container = document.getElementById('promo-carousel');
     try {
@@ -121,7 +127,6 @@ async function loadBannersFromDB() {
         initCarousel();
     } catch (error) { console.error("Error loading banners:", error); }
 }
-
 async function loadCategoriesFromDB() {
     const container = document.getElementById('category-list-short');
     try {
@@ -131,7 +136,6 @@ async function loadCategoriesFromDB() {
         querySnapshot.forEach(doc => { container.innerHTML += `<div class="category-chip">${doc.data().name}</div>`; });
     } catch (error) { console.error("Error loading categories:", error); }
 }
-
 async function loadProductsFromDB() {
     const grid = document.getElementById('product-grid');
     grid.innerHTML = "<p>Loading products...</p>";
@@ -143,7 +147,6 @@ async function loadProductsFromDB() {
         renderProducts(currentlyDisplayedProducts);
     } catch (error) { console.error("Error loading products:", error); }
 }
-
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
@@ -164,6 +167,10 @@ async function loadCustomerOrders() {
             const orderDate = order.createdAt.toDate().toLocaleDateString();
             const message = `Hello, I have a question about my order.\n\nProduct: ${order.productName}\nOrder ID: ${orderId}`;
             const whatsappUrl = `https://wa.me/918972766578?text=${encodeURIComponent(message)}`;
+            let deliveryDateText = '';
+            if (order.expectedDelivery) {
+                deliveryDateText = `<p>Expected Delivery: ${order.expectedDelivery.toDate().toLocaleDateString()}</p>`;
+            }
             const statuses = ['paid', 'dispatched', 'delivered'];
             const currentStatusIndex = statuses.indexOf(order.status);
             let progressTrackerHTML = '<div class="progress-tracker">';
@@ -176,11 +183,12 @@ async function loadCustomerOrders() {
             });
             progressTrackerHTML += '</div>';
             const trackerDisplay = (order.status !== 'pending' && order.status !== 'failed') ? progressTrackerHTML : `<p>Status: <span class="order-status ${order.status}">${order.status}</span></p>`;
-            container.innerHTML += `<div class="customer-order-card"><div class="order-card-header"><h4>${order.productName}</h4><i class="fas fa-chevron-down order-card-toggle"></i></div><div class="order-card-details"><p>Amount: ₹${order.amount.toFixed(2)}</p><p>Date: ${orderDate}</p><p>Order ID: ${orderId}</p>${order.expectedDelivery ? `<p>Expected Delivery: ${order.expectedDelivery.toDate().toLocaleDateString()}</p>` : ''}${trackerDisplay}<a href="${whatsappUrl}" class="whatsapp-btn" target="_blank"><i class="fab fa-whatsapp"></i> Contact Us</a></div></div>`;
+            container.innerHTML += `<div class="customer-order-card"><div class="order-card-header"><h4>${order.productName}</h4><i class="fas fa-chevron-down order-card-toggle"></i></div><div class="order-card-details"><p>Amount: ₹${order.amount.toFixed(2)}</p><p>Date: ${orderDate}</p><p>Order ID: ${orderId}</p>${deliveryDateText}${trackerDisplay}<a href="${whatsappUrl}" class="whatsapp-btn" target="_blank"><i class="fab fa-whatsapp"></i> Contact Us</a></div></div>`;
         });
     } catch (error) { console.error("Error loading customer-specific orders:", error); }
 }
 
+// --- "BUY NOW" WORKFLOW ---
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     if (!customerName) {
@@ -189,8 +197,10 @@ function handleBuyNow(productId) {
         return;
     }
     const addressModal = document.getElementById('address-confirm-modal');
-    const addressInput = document.getElementById('confirm-address-input');
-    addressInput.value = localStorage.getItem('customerAddress') || '';
+    document.getElementById('address-line1-input').value = localStorage.getItem('addressLine1') || '';
+    document.getElementById('address-city-input').value = localStorage.getItem('addressCity') || '';
+    document.getElementById('address-state-input').value = localStorage.getItem('addressState') || '';
+    document.getElementById('address-pincode-input').value = localStorage.getItem('addressPincode') || '';
     addressModal.dataset.productId = productId;
     addressModal.classList.remove('hidden');
 }
@@ -198,13 +208,21 @@ function handleBuyNow(productId) {
 function handleAddressConfirmation(event) {
     event.preventDefault();
     const addressModal = document.getElementById('address-confirm-modal');
-    const updatedAddress = document.getElementById('confirm-address-input').value.trim();
+    const line1 = document.getElementById('address-line1-input').value.trim();
+    const city = document.getElementById('address-city-input').value.trim();
+    const state = document.getElementById('address-state-input').value.trim();
+    const pincode = document.getElementById('address-pincode-input').value.trim();
     const productId = addressModal.dataset.productId;
-    if (!updatedAddress) {
-        alert("Shipping address is required.");
+    if (!line1 || !city || !state || !pincode) {
+        alert("Please fill out all address fields.");
         return;
     }
-    localStorage.setItem('customerAddress', updatedAddress);
+    const fullAddress = `${line1}, ${city}, ${state} - ${pincode}`;
+    localStorage.setItem('addressLine1', line1);
+    localStorage.setItem('addressCity', city);
+    localStorage.setItem('addressState', state);
+    localStorage.setItem('addressPincode', pincode);
+    localStorage.setItem('customerAddress', fullAddress);
     addressModal.classList.add('hidden');
     proceedToPayment(productId);
 }
