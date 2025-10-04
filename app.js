@@ -1,29 +1,31 @@
 import { db } from './firebase.js';
 import { collection, getDocs, query, where, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-// --- All other global variables and functions are the same ---
 let allProducts = [];
 let currentlyDisplayedProducts = [];
+
 const avatarUrls = {
     male: 'https://i.ibb.co/Vc0PFYYm/7f7badc277f30c8326a935dffe887664.jpg',
     female: 'https://i.ibb.co/Rpqrs2y4/d0dce7b389fdf481fbb5e87272e71ccb.jpg'
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    // --- THIS IS THE CRITICAL FIX ---
+    // ALWAYS check user details first, no matter what.
+    checkUserDetails();
+    
     const urlParams = new URLSearchParams(window.location.search);
+    // If coming back from a payment, go directly to the My Orders page.
     if (urlParams.has('view') && urlParams.get('view') === 'orders') {
-        checkUserDetails();
         switchView('orders-view');
         loadCustomerOrders();
-    } else {
-        checkUserDetails();
     }
+    
     loadData();
     setupEventListeners();
 });
 
 function setupEventListeners() {
-    // ... This function is correct from the last complete version ...
     document.getElementById('user-details-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const name = document.getElementById('user-name-input').value.trim();
@@ -105,38 +107,41 @@ async function loadData() {
 
 async function loadBannersFromDB() {
     const container = document.getElementById('promo-carousel');
-    const q = query(collection(db, "banners"), orderBy("createdAt", "desc"));
-    const querySnapshot = await getDocs(q);
-    if (querySnapshot.empty) { container.parentElement.style.display = 'none'; return; }
-    container.innerHTML = '';
-    querySnapshot.forEach(doc => { container.innerHTML += `<div class="carousel-slide"><img src="${doc.data().imageUrl}" alt="Promotional Banner"></div>`; });
-    initCarousel();
+    try {
+        const q = query(collection(db, "banners"), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) { container.parentElement.style.display = 'none'; return; }
+        container.innerHTML = '';
+        querySnapshot.forEach(doc => { container.innerHTML += `<div class="carousel-slide"><img src="${doc.data().imageUrl}" alt="Promotional Banner"></div>`; });
+        initCarousel();
+    } catch (error) { console.error("Error loading banners:", error); }
 }
 
 async function loadCategoriesFromDB() {
     const container = document.getElementById('category-list-short');
-    const q = query(collection(db, "categories"));
-    const querySnapshot = await getDocs(q);
-    container.innerHTML = `<div class="category-chip active">All</div>`;
-    querySnapshot.forEach(doc => { container.innerHTML += `<div class="category-chip">${doc.data().name}</div>`; });
+    try {
+        const q = query(collection(db, "categories"));
+        const querySnapshot = await getDocs(q);
+        container.innerHTML = `<div class="category-chip active">All</div>`;
+        querySnapshot.forEach(doc => { container.innerHTML += `<div class="category-chip">${doc.data().name}</div>`; });
+    } catch (error) { console.error("Error loading categories:", error); }
 }
 
 async function loadProductsFromDB() {
     const grid = document.getElementById('product-grid');
     grid.innerHTML = "<p>Loading products...</p>";
-    const querySnapshot = await getDocs(collection(db, "products"));
-    allProducts = [];
-    querySnapshot.forEach(doc => allProducts.push({ id: doc.id, ...doc.data() }));
-    currentlyDisplayedProducts = [...allProducts];
-    renderProducts(currentlyDisplayedProducts);
+    try {
+        const querySnapshot = await getDocs(collection(db, "products"));
+        allProducts = [];
+        querySnapshot.forEach(doc => allProducts.push({ id: doc.id, ...doc.data() }));
+        currentlyDisplayedProducts = [...allProducts];
+        renderProducts(currentlyDisplayedProducts);
+    } catch (error) { console.error("Error loading products:", error); }
 }
 
-// In app.js
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
-    const myWhatsAppNumber = "918972766578";
-
     if (!customerPhone) {
         container.innerHTML = "<p>Could not find your user details. Please log out and log back in.</p>";
         return;
@@ -147,59 +152,30 @@ async function loadCustomerOrders() {
         const q = query(ordersRef, where("customerPhone", "==", customerPhone), orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
         if (querySnapshot.empty) { container.innerHTML = "<p>You haven't placed any orders yet.</p>"; return; }
-        
         container.innerHTML = '';
         querySnapshot.forEach(doc => {
             const order = doc.data();
             const orderId = doc.id;
             const orderDate = order.createdAt.toDate().toLocaleDateString();
             const message = `Hello, I have a question about my order.\n\nProduct: ${order.productName}\nOrder ID: ${orderId}`;
-            const whatsappUrl = `https://wa.me/${myWhatsAppNumber}?text=${encodeURIComponent(message)}`;
-
-            // --- FINAL, CORRECTED PROGRESS TRACKER LOGIC (Original Style) ---
+            const whatsappUrl = `https://wa.me/918972766578?text=${encodeURIComponent(message)}`;
             const statuses = ['paid', 'dispatched', 'delivered'];
             const currentStatusIndex = statuses.indexOf(order.status);
-            
             let progressTrackerHTML = '<div class="progress-tracker">';
             statuses.forEach((status, index) => {
-                let statusClass = 'step-container';
-                
-                // The step is "completed" if its index is less than or equal to the current status index.
-                if (index <= currentStatusIndex) {
-                    statusClass += ' completed';
-                }
-                
-                const lineHTML = index < statuses.length - 1 ? '<div class="step-line"></div>' : '';
-
-                progressTrackerHTML += `
-                    <div class="${statusClass}">
-                        <div class="step-circle">&#10003;</div>
-                        <div class="step-label">${status}</div>
-                        ${lineHTML}
-                    </div>`;
+                let statusClass = 'step';
+                let lineClass = 'step-line';
+                if (index <= currentStatusIndex) { statusClass += ' completed'; }
+                if (index < currentStatusIndex) { lineClass += ' completed'; }
+                progressTrackerHTML += `<div class="step-container"><div class="${statusClass}"><div class="step-circle">&#10003;</div><div class="step-label">${status}</div></div>${index < statuses.length - 1 ? `<div class="${lineClass}"></div>` : ''}</div>`;
             });
             progressTrackerHTML += '</div>';
-            
-            const trackerDisplay = (order.status !== 'pending' && order.status !== 'failed') 
-                ? progressTrackerHTML 
-                : `<p>Status: <span class="order-status ${order.status}">${order.status}</span></p>`;
-
-            container.innerHTML += `
-                <div class="customer-order-card">
-                    <h4>${order.productName}</h4>
-                    <p>Amount: ₹${order.amount.toFixed(2)}</p>
-                    <p>Date: ${orderDate}</p>
-                    <p>Order ID: ${orderId}</p>
-                    ${trackerDisplay}
-                    <a href="${whatsappUrl}" class="whatsapp-btn" target="_blank">
-                        <i class="fab fa-whatsapp"></i> Contact Us
-                    </a>
-                </div>`;
+            const trackerDisplay = (order.status !== 'pending' && order.status !== 'failed') ? progressTrackerHTML : `<p>Status: <span class="order-status ${order.status}">${order.status}</span></p>`;
+            container.innerHTML += `<div class="customer-order-card"><h4>${order.productName}</h4><p>Amount: ₹${order.amount.toFixed(2)}</p><p>Date: ${orderDate}</p><p>Order ID: ${orderId}</p>${trackerDisplay}<a href="${whatsappUrl}" class="whatsapp-btn" target="_blank"><i class="fab fa-whatsapp"></i> Contact Us</a></div>`;
         });
-    } catch (error) { 
-        console.error("Error loading customer-specific orders:", error);
-    }
+    } catch (error) { console.error("Error loading customer-specific orders:", error); }
 }
+
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     const customerPhone = localStorage.getItem('customerPhone');
