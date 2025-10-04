@@ -131,9 +131,7 @@ async function loadProductsFromDB() {
     renderProducts(currentlyDisplayedProducts);
 }
 
-// ===================================================================
-// THIS IS THE FINAL, CORRECTED "MY ORDERS" FUNCTION
-// ===================================================================
+// In app.js
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
@@ -158,31 +156,26 @@ async function loadCustomerOrders() {
             const message = `Hello, I have a question about my order.\n\nProduct: ${order.productName}\nOrder ID: ${orderId}`;
             const whatsappUrl = `https://wa.me/${myWhatsAppNumber}?text=${encodeURIComponent(message)}`;
 
-            // --- FINAL, CORRECTED PROGRESS TRACKER LOGIC ---
+            // --- FINAL, CORRECTED PROGRESS TRACKER LOGIC (Original Style) ---
             const statuses = ['paid', 'dispatched', 'delivered'];
             const currentStatusIndex = statuses.indexOf(order.status);
             
             let progressTrackerHTML = '<div class="progress-tracker">';
             statuses.forEach((status, index) => {
-                let statusClass = 'step';
-                let lineClass = 'step-line';
+                let statusClass = 'step-container';
                 
-                // **THE FIX IS HERE:** A much simpler, more direct logic check.
+                // The step is "completed" if its index is less than or equal to the current status index.
                 if (index <= currentStatusIndex) {
                     statusClass += ' completed';
                 }
-                // The line is completed if the *next* step is completed or active
-                if (index < currentStatusIndex) {
-                    lineClass += ' completed';
-                }
+                
+                const lineHTML = index < statuses.length - 1 ? '<div class="step-line"></div>' : '';
 
                 progressTrackerHTML += `
-                    <div class="step-container">
-                        <div class="${statusClass}">
-                            <div class="step-circle">&#10003;</div>
-                            <div class="step-label">${status}</div>
-                        </div>
-                        ${index < statuses.length - 1 ? `<div class="${lineClass}"></div>` : ''}
+                    <div class="${statusClass}">
+                        <div class="step-circle">&#10003;</div>
+                        <div class="step-label">${status}</div>
+                        ${lineHTML}
                     </div>`;
             });
             progressTrackerHTML += '</div>';
@@ -207,7 +200,6 @@ async function loadCustomerOrders() {
         console.error("Error loading customer-specific orders:", error);
     }
 }
-
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     const customerPhone = localStorage.getItem('customerPhone');
