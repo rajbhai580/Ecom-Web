@@ -24,21 +24,14 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupEventListeners() {
-    // ===================================================================
-    // THIS IS THE FINAL, CORRECTED EVENT LISTENER FOR THE FIRST MODAL
-    // ===================================================================
+    // MODAL 1: Initial user details
     document.getElementById('user-details-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const name = document.getElementById('user-name-input').value.trim();
         const phone = document.getElementById('user-phone-input').value.trim();
-        // **THE FIX IS HERE: The address line is REMOVED.**
         const selectedAvatar = document.querySelector('.avatar-option.selected').dataset.avatar;
-
-        if (name && phone) {
-            saveInitialUserDetails(name, phone, selectedAvatar);
-        }
+        if (name && phone) saveInitialUserDetails(name, phone, selectedAvatar);
     });
-
     document.querySelector('.avatar-chooser').addEventListener('click', (e) => {
         if (e.target.classList.contains('avatar-option')) {
             document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
@@ -46,12 +39,11 @@ function setupEventListeners() {
         }
     });
 
-    // Event listener for the second (Address) modal
+    // MODAL 2: Address confirmation
     document.getElementById('address-confirm-form').addEventListener('submit', handleAddressConfirmation);
     document.getElementById('cancel-purchase-btn').addEventListener('click', () => {
         document.getElementById('address-confirm-modal').classList.add('hidden');
     });
-    // ===================================================================
 
     // --- Other event listeners ---
     document.getElementById('product-grid').addEventListener('click', handleProductGridClick);
@@ -68,6 +60,7 @@ function setupEventListeners() {
     document.getElementById('close-search-btn').addEventListener('click', toggleSearchBar);
 }
 
+// --- USER DETAILS (Simplified for initial setup) ---
 function checkUserDetails() {
     const userName = localStorage.getItem('customerName');
     if (userName) {
@@ -76,13 +69,11 @@ function checkUserDetails() {
         document.getElementById('user-details-modal').classList.remove('hidden');
     }
 }
-
 function greetUser(name) {
     document.getElementById('user-greeting-name').textContent = name;
     const avatar = localStorage.getItem('customerAvatar') || 'male';
     document.getElementById('header-avatar').src = avatarUrls[avatar];
 }
-
 function saveInitialUserDetails(name, phone, avatar) {
     const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
     localStorage.setItem('customerName', name);
@@ -90,10 +81,11 @@ function saveInitialUserDetails(name, phone, avatar) {
     localStorage.setItem('customerAvatar', avatar);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
-    // Save to DB for admin panel viewing, but no address yet
+    // Save to DB for admin panel viewing
     addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
+// --- PROFILE PAGE ---
 function showProfilePage() {
     const name = localStorage.getItem('customerName');
     const phone = localStorage.getItem('customerPhone');
@@ -113,12 +105,12 @@ function showProfilePage() {
     });
 }
 
+// --- DATA FETCHING ---
 async function loadData() {
     await loadBannersFromDB();
     await loadCategoriesFromDB();
     await loadProductsFromDB();
 }
-
 async function loadBannersFromDB() {
     const container = document.getElementById('promo-carousel');
     try {
@@ -130,7 +122,6 @@ async function loadBannersFromDB() {
         initCarousel();
     } catch (error) { console.error("Error loading banners:", error); }
 }
-
 async function loadCategoriesFromDB() {
     const container = document.getElementById('category-list-short');
     try {
@@ -140,10 +131,9 @@ async function loadCategoriesFromDB() {
         querySnapshot.forEach(doc => { container.innerHTML += `<div class="category-chip">${doc.data().name}</div>`; });
     } catch (error) { console.error("Error loading categories:", error); }
 }
-
 async function loadProductsFromDB() {
     const grid = document.getElementById('product-grid');
-    grid.innerHTML = "<p>Loading products...</p>";
+    grid.innerHTML = "<p>Loading products...</p>
     try {
         const querySnapshot = await getDocs(collection(db, "products"));
         allProducts = [];
@@ -152,7 +142,6 @@ async function loadProductsFromDB() {
         renderProducts(currentlyDisplayedProducts);
     } catch (error) { console.error("Error loading products:", error); }
 }
-
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
@@ -190,6 +179,11 @@ async function loadCustomerOrders() {
     } catch (error) { console.error("Error loading customer-specific orders:", error); }
 }
 
+// ===================================================================
+// THIS IS THE FINAL, PROFESSIONAL "BUY NOW" WORKFLOW
+// ===================================================================
+
+// STEP 1: "Buy Now" is clicked.
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
     if (!customerName) {
@@ -197,15 +191,20 @@ function handleBuyNow(productId) {
         checkUserDetails();
         return;
     }
+
     const addressModal = document.getElementById('address-confirm-modal');
-    const addressInput = document.getElementById('confirm-address-input');
-    addressInput.value = localStorage.getItem('customerAddress') || '';
+    
+    // Pre-fill the form with saved data if it exists
+    document.getElementById('address-line1-input').value = localStorage.getItem('addressLine1') || '';
+    document.getElementById('address-city-input').value = localStorage.getItem('addressCity') || '';
+    document.getElementById('address-state-input').value = localStorage.getItem('addressState') || '';
+    document.getElementById('address-pincode-input').value = localStorage.getItem('addressPincode') || '';
+
     addressModal.dataset.productId = productId;
     addressModal.classList.remove('hidden');
 }
 
-// In app.js, replace the handleAddressConfirmation function
-
+// STEP 2: The user confirms their address in the modal.
 function handleAddressConfirmation(event) {
     event.preventDefault();
     const addressModal = document.getElementById('address-confirm-modal');
@@ -234,21 +233,26 @@ function handleAddressConfirmation(event) {
     
     addressModal.classList.add('hidden');
     
+    // Now, proceed to create the order and redirect to payment
     proceedToPayment(productId);
 }
 
+// STEP 3: Create the pending order and redirect to Razorpay.
 async function proceedToPayment(productId) {
     const customerName = localStorage.getItem('customerName');
     const customerPhone = localStorage.getItem('customerPhone');
     const customerAddress = localStorage.getItem('customerAddress');
+    
     const product = allProducts.find(p => p.id === productId);
     if (!product || !product.paymentLink) {
         alert("Sorry, this product cannot be purchased right now.");
         return;
     }
+
     try {
         const sevenDaysFromNow = new Date();
         sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+
         const orderRef = await addDoc(collection(db, "orders"), {
             customerName, customerPhone, customerAddress, 
             productName: product.name,
@@ -258,16 +262,22 @@ async function proceedToPayment(productId) {
             createdAt: new Date(),
             expectedDelivery: sevenDaysFromNow
         });
+        
         console.log("Created PENDING order:", orderRef.id);
+        
         const paymentUrl = new URL(product.paymentLink);
         paymentUrl.searchParams.set('callback_url', `${window.location.origin}?view=orders`);
         paymentUrl.searchParams.set('callback_method', 'get');
+        
         window.location.href = paymentUrl.toString();
+
     } catch (error) {
         console.error("Error creating pending order:", error);
         alert("Could not initiate purchase. Please try again.");
     }
 }
+// ===================================================================
+
 
 function handleProductGridClick(e) {
     const buyBtn = e.target.closest('.buy-now-grid-btn');
