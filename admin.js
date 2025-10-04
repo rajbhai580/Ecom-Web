@@ -3,7 +3,6 @@ import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https:/
 import { collection, addDoc, getDocs, doc, setDoc, deleteDoc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 const IMGBB_API_KEY = "13aaae548cbbec9e7a5f0a4a6d8eed02"; // <-- REPLACE THIS WITH YOUR REAL KEY
-
 if (!db || !auth) {
     console.error("Halting admin script: Firebase did not initialize correctly.");
 } else {
@@ -351,27 +350,29 @@ if (!db || !auth) {
         }
 
         const handleOrderActions = async (e) => {
-            if (e.target.classList.contains('delete-order-btn') || e.target.classList.contains('order-status-selector')) {
-                e.stopPropagation();
-                if (e.target.classList.contains('delete-order-btn')) {
-                    const orderId = e.target.dataset.id;
-                    if (confirm(`Are you sure you want to permanently delete this order?\n\nID: ${orderId}`)) {
-                        await deleteDoc(doc(db, "orders", orderId));
-                        await renderOrders();
-                    }
-                }
-                if (e.target.classList.contains('order-status-selector')) {
-                    const orderId = e.target.dataset.id;
-                    const newStatus = e.target.value;
-                    await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-                    alert('Status updated!');
+            if (e.target.classList.contains('delete-order-btn')) {
+                const orderId = e.target.dataset.id;
+                if (confirm(`Are you sure you want to permanently delete this order?\n\nID: ${orderId}`)) {
+                    await deleteDoc(doc(db, "orders", orderId));
                     await renderOrders();
-}
+                }
             }
         };
+
+        const handleStatusChange = async (e) => {
+            if (e.target.classList.contains('order-status-selector')) {
+                const orderId = e.target.dataset.id;
+                const newStatus = e.target.value;
+                await updateDoc(doc(db, "orders", orderId), { status: newStatus });
+                alert('Status updated!');
+                await renderOrders();
+            }
+        };
+
         const ordersView = document.getElementById('orders-view');
         ordersView.addEventListener('click', handleOrderActions);
-        ordersView.addEventListener('change', handleOrderActions);
+        ordersView.addEventListener('change', handleStatusChange);
+
         await renderOrders();
     }
 }
