@@ -28,19 +28,8 @@ function setupEventListeners() {
         e.preventDefault();
         const name = document.getElementById('user-name-input').value.trim();
         const phone = document.getElementById('user-phone-input').value.trim();
-        const selectedAvatar = document.querySelector('.avatar-option.selected').dataset.avatar;
-        if (name && phone) saveInitialUserDetails(name, phone, selectedAvatar);
-    });
-    document.querySelector('.avatar-chooser').addEventListener('click', (e) => {
-        if (e.target.classList.contains('avatar-option')) {
-            document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
-            e.target.classList.add('selected');
-        }
-    });
-
-    document.getElementById('address-confirm-form').addEventListener('submit', handleAddressConfirmation);
-    document.getElementById('cancel-purchase-btn').addEventListener('click', () => {
-        document.getElementById('address-confirm-modal').classList.add('hidden');
+        const address = document.getElementById('user-address-input').value.trim();
+        if (name && phone && address) saveUserDetails(name, phone, address);
     });
     
     document.getElementById('product-grid').addEventListener('click', handleProductGridClick);
@@ -56,7 +45,7 @@ function setupEventListeners() {
     document.getElementById('search-input').addEventListener('input', handleSearch);
     document.getElementById('close-search-btn').addEventListener('click', toggleSearchBar);
     document.getElementById('customer-orders-list').addEventListener('click', (e) => {
-        const header = e.target.closest('.order-card-header');
+        const header = e.target.closest('.order-summary-preview');
         if (header) {
             header.parentElement.classList.toggle('expanded');
         }
@@ -74,31 +63,26 @@ function checkUserDetails() {
 
 function greetUser(name) {
     document.getElementById('user-greeting-name').textContent = name;
-    const avatar = localStorage.getItem('customerAvatar') || 'male';
-    document.getElementById('header-avatar').src = avatarUrls[avatar];
 }
 
-function saveInitialUserDetails(name, phone, avatar) {
+function saveUserDetails(name, phone, address) {
     const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
     localStorage.setItem('customerName', name);
     localStorage.setItem('customerPhone', sanitizedPhone);
-    localStorage.setItem('customerAvatar', avatar);
+    localStorage.setItem('customerAddress', address);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
-    // We do not save address here initially
-    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
+    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, address, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
 function showProfilePage() {
     const name = localStorage.getItem('customerName');
     const phone = localStorage.getItem('customerPhone');
     const address = localStorage.getItem('customerAddress');
-    const avatar = localStorage.getItem('customerAvatar') || 'male';
     if (name && phone) {
         document.getElementById('profile-name').textContent = name;
         document.getElementById('profile-phone').textContent = phone;
-        document.getElementById('profile-address').textContent = address || 'Not set';
-        document.getElementById('profile-photo').src = avatarUrls[avatar];
+        document.getElementById('profile-address').textContent = address || 'N/A';
     }
     document.getElementById('logout-btn').addEventListener('click', () => {
         if (confirm("Are you sure you want to log out?")) {
@@ -152,6 +136,7 @@ async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
     const myWhatsAppNumber = "918972766578";
+
     if (!customerPhone) {
         container.innerHTML = "<p>Could not find your user details. Please log out and log back in.</p>";
         return;
@@ -162,73 +147,66 @@ async function loadCustomerOrders() {
         const q = query(ordersRef, where("customerPhone", "==", customerPhone), orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
         if (querySnapshot.empty) { container.innerHTML = "<p>You haven't placed any orders yet.</p>"; return; }
+        
         container.innerHTML = '';
         querySnapshot.forEach(doc => {
             const order = doc.data();
             const orderId = doc.id;
-            const orderDate = order.createdAt.toDate().toLocaleDateString();
+            const product = allProducts.find(p => p.id === order.productId);
+            const imageUrl = product ? product.imageUrl : 'https://via.placeholder.com/150';
             const message = `Hello, I have a question about my order.\n\nProduct: ${order.productName}\nOrder ID: ${orderId}`;
             const whatsappUrl = `https://wa.me/${myWhatsAppNumber}?text=${encodeURIComponent(message)}`;
-            let deliveryDateText = '';
-            if (order.expectedDelivery) { deliveryDateText = `<p>Expected Delivery: ${order.expectedDelivery.toDate().toLocaleDateString()}</p>`; }
-            const statuses = ['paid', 'dispatched', 'delivered'];
-            const currentStatusIndex = statuses.indexOf(order.status);
-            let progressTrackerHTML = '<div class="progress-tracker">';
-            statuses.forEach((status, index) => {
-                let statusClass = 'step';
-                let lineClass = 'step-line';
-                if (index <= currentStatusIndex) { statusClass += ' completed'; }
-                if (index < currentStatusIndex) { lineClass += ' completed'; }
-                progressTrackerHTML += `<div class="step-container"><div class="${statusClass}"><div class="step-circle">&#10003;</div><div class="step-label">${status}</div></div>${index < statuses.length - 1 ? `<div class="${lineClass}"></div>` : ''}</div>`;
-            });
-            progressTrackerHTML += '</div>';
-            const trackerDisplay = (order.status !== 'pending' && order.status !== 'failed') ? progressTrackerHTML : `<p>Status: <span class="order-status ${order.status}">${order.status}</span></p>`;
-            container.innerHTML += `<div class="customer-order-card"><div class="order-card-header"><h4>${order.productName}</h4><i class="fas fa-chevron-down order-card-toggle"></i></div><div class="order-card-details"><p>Amount: ₹${order.amount.toFixed(2)}</p><p>Date: ${orderDate}</p><p>Order ID: ${orderId}</p>${deliveryDateText}${trackerDisplay}<a href="${whatsappUrl}" class="whatsapp-btn" target="_blank"><i class="fab fa-whatsapp"></i> Contact Us</a></div></div>`;
+            
+            container.innerHTML += `
+                <div class="customer-order-card">
+                    <div class="order-summary-preview">
+                        <img src="${imageUrl}" alt="${order.productName}" class="product-image">
+                        <div class="info">
+                            <h4>${order.productName}</h4>
+                            <p>Order ID: ${orderId}</p>
+                        </div>
+                        <span class="order-status ${order.status}">${order.status}</span>
+                    </div>
+                    <div class="order-full-details">
+                        <p><strong>Amount:</strong> <span>₹${order.amount.toFixed(2)}</span></p>
+                        <p><strong>Date:</strong> <span>${order.createdAt.toDate().toLocaleDateString()}</span></p>
+                        <p><strong>Shipping Address:</strong> <span style="text-align: right;">${order.customerAddress}</span></p>
+                        <a href="${whatsappUrl}" class="whatsapp-btn" target="_blank"><i class="fab fa-whatsapp"></i> Contact Us</a>
+                    </div>
+                </div>`;
         });
-    } catch (error) { console.error("Error loading customer-specific orders:", error); }
+    } catch (error) { 
+        console.error("Error loading customer-specific orders:", error);
+    }
 }
 
-// ===================================================================
-// THIS IS THE FINAL, CORRECTED "BUY NOW" WORKFLOW
-// ===================================================================
 function handleBuyNow(productId) {
     const customerName = localStorage.getItem('customerName');
-    if (!customerName) {
+    const customerPhone = localStorage.getItem('customerPhone');
+    let customerAddress = localStorage.getItem('customerAddress');
+    if (!customerName || !customerPhone) {
         alert("Please provide your details first.");
         checkUserDetails();
         return;
     }
-    const addressModal = document.getElementById('address-confirm-modal');
-    
-    // **THE FIX IS HERE: Using the correct localStorage keys**
-    document.getElementById('address-line1-input').value = localStorage.getItem('addressLine1') || '';
-    document.getElementById('address-city-input').value = localStorage.getItem('addressCity') || '';
-    document.getElementById('address-state-input').value = localStorage.getItem('addressState') || '';
-    document.getElementById('address-pincode-input').value = localStorage.getItem('addressPincode') || ''; // Corrected key
-
-    addressModal.dataset.productId = productId;
-    addressModal.classList.remove('hidden');
+    const addressConfirmModal = document.getElementById('address-confirm-modal');
+    const addressInput = document.getElementById('confirm-address-input');
+    addressInput.value = customerAddress || '';
+    addressConfirmModal.dataset.productId = productId;
+    addressConfirmModal.classList.remove('hidden');
 }
 
 function handleAddressConfirmation(event) {
     event.preventDefault();
-    const addressModal = document.getElementById('address-confirm-modal');
-    const line1 = document.getElementById('address-line1-input').value.trim();
-    const city = document.getElementById('address-city-input').value.trim();
-    const state = document.getElementById('address-state-input').value.trim();
-    const pincode = document.getElementById('address-pincode-input').value.trim();
-    const productId = addressModal.dataset.productId;
-    if (!line1 || !city || !state || !pincode) {
-        alert("Please fill out all address fields.");
+    const addressConfirmModal = document.getElementById('address-confirm-modal');
+    const updatedAddress = document.getElementById('confirm-address-input').value.trim();
+    const productId = addressConfirmModal.dataset.productId;
+    if (!updatedAddress) {
+        alert("Shipping address is required.");
         return;
     }
-    const fullAddress = `${line1}, ${city}, ${state} - ${pincode}`;
-    localStorage.setItem('addressLine1', line1);
-    localStorage.setItem('addressCity', city);
-    localStorage.setItem('addressState', state);
-    localStorage.setItem('addressPincode', pincode);
-    localStorage.setItem('customerAddress', fullAddress);
-    addressModal.classList.add('hidden');
+    localStorage.setItem('customerAddress', updatedAddress);
+    addressConfirmModal.classList.add('hidden');
     proceedToPayment(productId);
 }
 
@@ -263,7 +241,6 @@ async function proceedToPayment(productId) {
         alert("Could not initiate purchase. Please try again.");
     }
 }
-// ===================================================================
 
 function handleProductGridClick(e) {
     const buyBtn = e.target.closest('.buy-now-grid-btn');
