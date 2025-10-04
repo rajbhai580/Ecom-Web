@@ -29,9 +29,15 @@ function setupEventListeners() {
         const name = document.getElementById('user-name-input').value.trim();
         const phone = document.getElementById('user-phone-input').value.trim();
         const address = document.getElementById('user-address-input').value.trim();
-        if (name && phone && address) saveUserDetails(name, phone, address);
+        const selectedAvatar = document.querySelector('.avatar-option.selected').dataset.avatar;
+        if (name && phone && address) saveUserDetails(name, phone, address, selectedAvatar);
     });
-    
+    document.querySelector('.avatar-chooser').addEventListener('click', (e) => {
+        if (e.target.classList.contains('avatar-option')) {
+            document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
+            e.target.classList.add('selected');
+        }
+    });
     document.getElementById('product-grid').addEventListener('click', handleProductGridClick);
     document.getElementById('buy-now-btn').addEventListener('click', (e) => handleBuyNow(e.target.dataset.id));
     document.querySelector('.bottom-nav').addEventListener('click', handleNavigation);
@@ -57,26 +63,31 @@ function checkUserDetails() {
 
 function greetUser(name) {
     document.getElementById('user-greeting-name').textContent = name;
+    const avatar = localStorage.getItem('customerAvatar') || 'male';
+    document.getElementById('header-avatar').src = avatarUrls[avatar];
 }
 
-function saveUserDetails(name, phone, address) {
+function saveUserDetails(name, phone, address, avatar) {
     const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
     localStorage.setItem('customerName', name);
     localStorage.setItem('customerPhone', sanitizedPhone);
     localStorage.setItem('customerAddress', address);
+    localStorage.setItem('customerAvatar', avatar);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
-    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, address, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
+    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, address, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
 function showProfilePage() {
     const name = localStorage.getItem('customerName');
     const phone = localStorage.getItem('customerPhone');
     const address = localStorage.getItem('customerAddress');
+    const avatar = localStorage.getItem('customerAvatar') || 'male';
     if (name && phone) {
         document.getElementById('profile-name').textContent = name;
         document.getElementById('profile-phone').textContent = phone;
         document.getElementById('profile-address').textContent = address || 'N/A';
+        document.getElementById('profile-photo').src = avatarUrls[avatar];
     }
     document.getElementById('logout-btn').addEventListener('click', () => {
         if (confirm("Are you sure you want to log out?")) {
@@ -126,15 +137,10 @@ async function loadProductsFromDB() {
     } catch (error) { console.error("Error loading products:", error); }
 }
 
-// ===================================================================
-// THIS IS THE FINAL, COMPLETE "MY ORDERS" FUNCTION WITH WHATSAPP & TRACKER
-// ===================================================================
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
-    
-    // IMPORTANT: Replace this with YOUR WhatsApp number
-    const myWhatsAppNumber = "918972766578"; // Use country code without '+' or spaces
+    const myWhatsAppNumber = "918972766578";
 
     if (!customerPhone) {
         container.innerHTML = "<p>Could not find your user details. Please log out and log back in.</p>";
@@ -152,44 +158,32 @@ async function loadCustomerOrders() {
             const order = doc.data();
             const orderId = doc.id;
             const orderDate = order.createdAt.toDate().toLocaleDateString();
-
-            // Create the pre-filled WhatsApp message
             const message = `Hello, I have a question about my order.\n\nProduct: ${order.productName}\nOrder ID: ${orderId}`;
             const whatsappUrl = `https://wa.me/${myWhatsAppNumber}?text=${encodeURIComponent(message)}`;
 
-            // --- PROGRESS TRACKER LOGIC ---
             const statuses = ['paid', 'dispatched', 'delivered'];
             const currentStatusIndex = statuses.indexOf(order.status);
             
             let progressTrackerHTML = '<div class="progress-tracker">';
             statuses.forEach((status, index) => {
                 let statusClass = 'step-container';
-                let stepContent = index + 1; // Default to the number
-                if (index < currentStatusIndex) {
+                let stepContent = index + 1;
+                if (index <= currentStatusIndex) {
                     statusClass += ' completed';
-                    stepContent = '&#10003;'; // Checkmark for completed steps
-                } else if (index === currentStatusIndex) {
+                    stepContent = '&#10003;';
+                }
+                if (index === currentStatusIndex) {
                     statusClass += ' active';
                 }
-                
-                // Add the connecting line, but not for the last step
                 const lineHTML = index < statuses.length - 1 ? '<div class="step-line"></div>' : '';
-
-                progressTrackerHTML += `
-                    <div class="${statusClass}">
-                        <div class="step-circle">${stepContent}</div>
-                        <div class="step-label">${status}</div>
-                        ${lineHTML}
-                    </div>`;
+                progressTrackerHTML += `<div class="${statusClass}"><div class="step-circle">${stepContent}</div><div class="step-label">${status}</div>${lineHTML}</div>`;
             });
             progressTrackerHTML += '</div>';
-            
-            // Determine what to display: the tracker, or the simple status
+
             const trackerDisplay = (order.status !== 'pending' && order.status !== 'failed') 
                 ? progressTrackerHTML 
                 : `<p>Status: <span class="order-status ${order.status}">${order.status}</span></p>`;
 
-            // Render the final card
             container.innerHTML += `
                 <div class="customer-order-card">
                     <h4>${order.productName}</h4>
@@ -197,9 +191,7 @@ async function loadCustomerOrders() {
                     <p>Date: ${orderDate}</p>
                     <p>Order ID: ${orderId}</p>
                     ${trackerDisplay}
-                    <a href="${whatsappUrl}" class="whatsapp-btn" target="_blank">
-                        <i class="fab fa-whatsapp"></i> Contact Us
-                    </a>
+                    <a href="${whatsappUrl}" class="whatsapp-btn" target="_blank"><i class="fab fa-whatsapp"></i> Contact Us</a>
                 </div>`;
         });
     } catch (error) { 
