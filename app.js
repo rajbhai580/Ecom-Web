@@ -1,4 +1,3 @@
-javascript
 import { db } from './firebase.js';
 import { collection, getDocs, query, where, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
@@ -25,18 +24,18 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupEventListeners() {
-    // ===================================================================
-    // THIS IS THE FINAL, CORRECTED EVENT LISTENER FOR THE FIRST MODAL
-    // ===================================================================
+    // Corrected event listener for the initial user details form
     document.getElementById('user-details-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const name = document.getElementById('user-name-input').value.trim();
         const phone = document.getElementById('user-phone-input').value.trim();
-        // **THE FIX IS HERE: The address line is REMOVED.**
+        const address = document.getElementById('user-address-input').value.trim();
         const selectedAvatar = document.querySelector('.avatar-option.selected').dataset.avatar;
 
-        if (name && phone) {
-            saveInitialUserDetails(name, phone, selectedAvatar);
+        if (name && phone && address) {
+            saveUserDetails(name, phone, address, selectedAvatar);
+        } else {
+            alert("Please fill out all fields.");
         }
     });
 
@@ -47,13 +46,10 @@ function setupEventListeners() {
         }
     });
 
-    // Event listener for the second (Address) modal
     document.getElementById('address-confirm-form').addEventListener('submit', handleAddressConfirmation);
     document.getElementById('cancel-purchase-btn').addEventListener('click', () => {
         document.getElementById('address-confirm-modal').classList.add('hidden');
     });
-    // ===================================================================
-
 
     document.getElementById('product-grid').addEventListener('click', handleProductGridClick);
     document.getElementById('buy-now-btn').addEventListener('click', (e) => handleBuyNow(e.target.dataset.id));
@@ -84,14 +80,15 @@ function greetUser(name) {
     document.getElementById('header-avatar').src = avatarUrls[avatar];
 }
 
-function saveInitialUserDetails(name, phone, avatar) {
+function saveUserDetails(name, phone, address, avatar) {
     const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
     localStorage.setItem('customerName', name);
     localStorage.setItem('customerPhone', sanitizedPhone);
+    localStorage.setItem('customerAddress', address);
     localStorage.setItem('customerAvatar', avatar);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
-    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
+    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, address, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
 function showProfilePage() {
