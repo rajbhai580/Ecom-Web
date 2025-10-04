@@ -1,9 +1,9 @@
 import { db } from './firebase.js';
 import { collection, getDocs, query, where, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
+// --- All other global variables and functions are the same ---
 let allProducts = [];
 let currentlyDisplayedProducts = [];
-
 const avatarUrls = {
     male: 'https://i.ibb.co/Vc0PFYYm/7f7badc277f30c8326a935dffe887664.jpg',
     female: 'https://i.ibb.co/Rpqrs2y4/d0dce7b389fdf481fbb5e87272e71ccb.jpg'
@@ -18,20 +18,26 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         checkUserDetails();
     }
-    
     loadData();
     setupEventListeners();
 });
 
 function setupEventListeners() {
+    // ... This function is correct from the last complete version ...
     document.getElementById('user-details-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const name = document.getElementById('user-name-input').value.trim();
         const phone = document.getElementById('user-phone-input').value.trim();
         const address = document.getElementById('user-address-input').value.trim();
-        if (name && phone && address) saveUserDetails(name, phone, address);
+        const selectedAvatar = document.querySelector('.avatar-option.selected').dataset.avatar;
+        if (name && phone && address) saveUserDetails(name, phone, address, selectedAvatar);
     });
-    
+    document.querySelector('.avatar-chooser').addEventListener('click', (e) => {
+        if (e.target.classList.contains('avatar-option')) {
+            document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
+            e.target.classList.add('selected');
+        }
+    });
     document.getElementById('product-grid').addEventListener('click', handleProductGridClick);
     document.getElementById('buy-now-btn').addEventListener('click', (e) => handleBuyNow(e.target.dataset.id));
     document.querySelector('.bottom-nav').addEventListener('click', handleNavigation);
@@ -57,26 +63,31 @@ function checkUserDetails() {
 
 function greetUser(name) {
     document.getElementById('user-greeting-name').textContent = name;
+    const avatar = localStorage.getItem('customerAvatar') || 'male';
+    document.getElementById('header-avatar').src = avatarUrls[avatar];
 }
 
-function saveUserDetails(name, phone, address) {
+function saveUserDetails(name, phone, address, avatar) {
     const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
     localStorage.setItem('customerName', name);
     localStorage.setItem('customerPhone', sanitizedPhone);
     localStorage.setItem('customerAddress', address);
+    localStorage.setItem('customerAvatar', avatar);
     greetUser(name);
     document.getElementById('user-details-modal').classList.add('hidden');
-    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, address, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
+    addDoc(collection(db, "customers"), { name, phone: sanitizedPhone, address, avatar, createdAt: new Date() }).catch(err => console.error("Could not save customer lead:", err));
 }
 
 function showProfilePage() {
     const name = localStorage.getItem('customerName');
     const phone = localStorage.getItem('customerPhone');
     const address = localStorage.getItem('customerAddress');
+    const avatar = localStorage.getItem('customerAvatar') || 'male';
     if (name && phone) {
         document.getElementById('profile-name').textContent = name;
         document.getElementById('profile-phone').textContent = phone;
         document.getElementById('profile-address').textContent = address || 'N/A';
+        document.getElementById('profile-photo').src = avatarUrls[avatar];
     }
     document.getElementById('logout-btn').addEventListener('click', () => {
         if (confirm("Are you sure you want to log out?")) {
@@ -94,39 +105,35 @@ async function loadData() {
 
 async function loadBannersFromDB() {
     const container = document.getElementById('promo-carousel');
-    try {
-        const q = query(collection(db, "banners"), orderBy("createdAt", "desc"));
-        const querySnapshot = await getDocs(q);
-        if (querySnapshot.empty) { container.parentElement.style.display = 'none'; return; }
-        container.innerHTML = '';
-        querySnapshot.forEach(doc => { container.innerHTML += `<div class="carousel-slide"><img src="${doc.data().imageUrl}" alt="Promotional Banner"></div>`; });
-        initCarousel();
-    } catch (error) { console.error("Error loading banners:", error); }
+    const q = query(collection(db, "banners"), orderBy("createdAt", "desc"));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) { container.parentElement.style.display = 'none'; return; }
+    container.innerHTML = '';
+    querySnapshot.forEach(doc => { container.innerHTML += `<div class="carousel-slide"><img src="${doc.data().imageUrl}" alt="Promotional Banner"></div>`; });
+    initCarousel();
 }
 
 async function loadCategoriesFromDB() {
     const container = document.getElementById('category-list-short');
-    try {
-        const q = query(collection(db, "categories"));
-        const querySnapshot = await getDocs(q);
-        container.innerHTML = `<div class="category-chip active">All</div>`;
-        querySnapshot.forEach(doc => { container.innerHTML += `<div class="category-chip">${doc.data().name}</div>`; });
-    } catch (error) { console.error("Error loading categories:", error); }
+    const q = query(collection(db, "categories"));
+    const querySnapshot = await getDocs(q);
+    container.innerHTML = `<div class="category-chip active">All</div>`;
+    querySnapshot.forEach(doc => { container.innerHTML += `<div class="category-chip">${doc.data().name}</div>`; });
 }
 
 async function loadProductsFromDB() {
     const grid = document.getElementById('product-grid');
     grid.innerHTML = "<p>Loading products...</p>";
-    try {
-        const querySnapshot = await getDocs(collection(db, "products"));
-        allProducts = [];
-        querySnapshot.forEach(doc => allProducts.push({ id: doc.id, ...doc.data() }));
-        currentlyDisplayedProducts = [...allProducts];
-        renderProducts(currentlyDisplayedProducts);
-    } catch (error) { console.error("Error loading products:", error); }
+    const querySnapshot = await getDocs(collection(db, "products"));
+    allProducts = [];
+    querySnapshot.forEach(doc => allProducts.push({ id: doc.id, ...doc.data() }));
+    currentlyDisplayedProducts = [...allProducts];
+    renderProducts(currentlyDisplayedProducts);
 }
 
-// In app.js
+// ===================================================================
+// THIS IS THE FINAL, CORRECTED "MY ORDERS" FUNCTION
+// ===================================================================
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
@@ -157,31 +164,25 @@ async function loadCustomerOrders() {
             
             let progressTrackerHTML = '<div class="progress-tracker">';
             statuses.forEach((status, index) => {
-                let statusClass = 'step-container';
-                let stepContent = index + 1;
+                let statusClass = 'step';
+                let lineClass = 'step-line';
                 
+                // **THE FIX IS HERE:** A much simpler, more direct logic check.
                 if (index <= currentStatusIndex) {
                     statusClass += ' completed';
-                    stepContent = '&#10003;'; // Checkmark
                 }
-                
-                if (index === currentStatusIndex) {
-                    statusClass += ' active';
+                // The line is completed if the *next* step is completed or active
+                if (index < currentStatusIndex) {
+                    lineClass += ' completed';
                 }
-
-                // If a step is in the future, show the number instead of a checkmark
-                if (index > currentStatusIndex) {
-                    stepContent = index + 1;
-                }
-
-                // The line should connect this step to the next one
-                const lineHTML = index < statuses.length - 1 ? '<div class="step-line"></div>' : '';
 
                 progressTrackerHTML += `
-                    <div class="${statusClass}">
-                        <div class="step-circle">${stepContent}</div>
-                        <div class="step-label">${status}</div>
-                        ${lineHTML}
+                    <div class="step-container">
+                        <div class="${statusClass}">
+                            <div class="step-circle">&#10003;</div>
+                            <div class="step-label">${status}</div>
+                        </div>
+                        ${index < statuses.length - 1 ? `<div class="${lineClass}"></div>` : ''}
                     </div>`;
             });
             progressTrackerHTML += '</div>';
@@ -204,7 +205,6 @@ async function loadCustomerOrders() {
         });
     } catch (error) { 
         console.error("Error loading customer-specific orders:", error);
-        container.innerHTML = "<p>Could not load your orders. Please try again.</p>";
     }
 }
 
