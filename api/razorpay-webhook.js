@@ -2,6 +2,7 @@ import { buffer } from 'micro';
 import admin from 'firebase-admin';
 import crypto from 'crypto';
 
+// --- Secure Initialization of Firebase Admin ---
 try {
   if (!admin.apps.length) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
@@ -24,10 +25,12 @@ export const config = {
 
 export default async function handler(req, res) {
   console.log("--- Webhook Invoked ---");
+
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).end('Method Not Allowed');
   }
+
   if (!RAZORPAY_SECRET) {
       console.error("FATAL: RAZORPAY_WEBHOOK_SECRET is not set.");
       return res.status(500).json({ error: 'Server configuration error.' });
@@ -36,12 +39,14 @@ export default async function handler(req, res) {
   try {
     const rawBody = await buffer(req);
     const signature = req.headers['x-razorpay-signature'];
+    
+    // --- Reliable Validation Method ---
     const shasum = crypto.createHmac('sha256', RAZORPAY_SECRET);
     shasum.update(rawBody);
     const digest = shasum.digest('hex');
 
     if (digest !== signature) {
-      console.error('--- SIGNATURE MISMATCH ---');
+      console.error('--- SIGNATURE MISMATCH --- The secret in Vercel does not match Razorpay.');
       return res.status(403).json({ error: 'Invalid signature.' });
     }
     console.log("--- Signature Verified Successfully ---");
@@ -52,27 +57,40 @@ export default async function handler(req, res) {
 
     if (event.event === 'payment.captured') {
         const paymentInfo = event.payload.payment.entity;
-        
-        // THE FIX IS HERE: We find the order using the order_id from notes
-        const orderId = paymentInfo.notes.order_id;
+        const razorpayPhone = paymentInfo.contact || '';
+        const customerPhone = razorpayPhone.replace(/\D/g, '').slice(-10);
+        const amountPaid = paymentInfo.amount / 100;
 
-        if (!orderId) {
-            console.warn("Webhook received without order_id in notes. Ignoring.");
-            return res.status(200).json({ status: 'ignored_missing_order_id' });
+        console.log(`Payment captured. Searching for pending order for phone: ${customerPhone} and amount: ${amountPaid}`);
+
+        if (!customerPhone) {
+            console.warn("Webhook received for payment with no contact number. Cannot find order.");
+            return res.status(200).json({ status: 'ignored_no_contact' });
         }
 
-        console.log(`Payment captured. Updating order ID: ${orderId}`);
+        const ordersRef = db.collection('orders');
+        const q = ordersRef
+            .where('customerPhone', '==', customerPhone)
+            .where('amount', '==', amountPaid)
+            .where('status', '==', 'pending')
+            .orderBy('createdAt', 'desc')
+            .limit(1);
 
-        const orderRef = db.collection('orders').doc(orderId);
-        
-        // Update the existing order from 'failed' to 'paid'
-        await orderRef.update({
+        const querySnapshot = await q.get();
+
+        if (querySnapshot.empty) {
+            console.warn(`--- Webhook search complete. No matching PENDING order was found. ---`);
+            return res.status(200).json({ status: 'no_matching_pending_order' });
+        }
+
+        const orderDoc = querySnapshot.docs[0];
+        await orderDoc.ref.update({
             status: 'paid',
             paymentId: paymentInfo.id,
             paymentDetails: paymentInfo,
         });
         
-        console.log(`--- SUCCESS! Updated order ${orderId} to 'paid'. ---`);
+        console.log(`--- SUCCESS! Updated order ${orderDoc.id} to 'paid'. ---`);
     } else {
         console.log(`Webhook received for event '${event.event}', which is not 'payment.captured'. Ignoring.`);
     }
