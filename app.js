@@ -150,7 +150,6 @@ async function loadProductsFromDB() {
 async function loadCustomerOrders() {
     const container = document.getElementById('customer-orders-list');
     const customerPhone = localStorage.getItem('customerPhone');
-    const myWhatsAppNumber = "918972766578";
     if (!customerPhone) {
         container.innerHTML = "<p>Could not find your user details. Please log out and log back in.</p>";
         return;
@@ -168,7 +167,7 @@ async function loadCustomerOrders() {
             const product = allProducts.find(p => p.id === order.productId);
             const imageUrl = product ? product.imageUrl : 'https://via.placeholder.com/150';
             const message = `Hello, I have a question about my order.\n\nProduct: ${order.productName}\nOrder ID: ${orderId}`;
-            const whatsappUrl = `https://wa.me/${myWhatsAppNumber}?text=${encodeURIComponent(message)}`;
+            const whatsappUrl = `https://wa.me/918972766578?text=${encodeURIComponent(message)}`;
             const d = order.createdAt.toDate();
             const orderDate = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
             let deliveryDateText = '';
